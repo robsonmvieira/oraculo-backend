@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.modules.audiences.application.use_cases.get_audience_card_use_case import (
@@ -16,6 +17,12 @@ from app.modules.audiences.application.use_cases.manage_audience_use_case import
     UpdateAudienceInput,
     UpdateAudienceUseCase,
 )
+from app.modules.audience_templates.application.use_cases.generate_audience_template_use_case import (
+    GenerateAudienceTemplateUseCase,
+)
+from app.modules.audience_templates.infra.repositories.audience_template_repository import (
+    AudienceTemplateRepository,
+)
 from app.modules.shared.infra.cache.redit_cache import RedisCache
 from app.modules.shared.infra.database.database import get_db
 from app.modules.topics.application.use_cases.general_use_case.general_use_case import (
@@ -24,17 +31,11 @@ from app.modules.topics.application.use_cases.general_use_case.general_use_case 
 from app.modules.topics.application.use_cases.get_community_details_use_case.get_community_details_use_case import (
     GetCommunityDetailsUseCase,
 )
-from app.modules.topics.application.use_cases.get_related_communities_use_case.get_related_communities_use_case import (
-    GetRelatedCommunitiesUseCase,
-)
 from app.modules.topics.application.use_cases.search_community_use_case.search_community_use_case import (
     SearchCommunityUseCase,
 )
 from app.modules.topics.infra.providers.reddit_provider.generic_reddit_provider import (
     GenericRedditProvider,
-)
-from app.modules.topics.infra.providers.reddit_provider.old_reddit_scraper import (
-    OldRedditScraper,
 )
 
 
@@ -52,10 +53,33 @@ class UpdateAudienceRequest(BaseModel):
 class AddCommunityRequest(BaseModel):
     subreddit_name: str
 
+
+class GenerateTemplateRequest(BaseModel):
+    name: str
+    description: str | None = None
+    icon: str | None = None
+    category: str | None = None
+    max_subreddits: int = 15
+
+
 app = FastAPI(
     title="CRM API",
     description="API para gerenciamento de leads e propostas",
     version="0.1.0",
+)
+
+# CORS configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -113,7 +137,7 @@ def search_community(
     )
 
 
-@app.get("/communities/{community_name}")
+@app.get("/community-details/{community_name}")
 def get_community_details(community_name: str, db=Depends(get_db)):
     """
     Obtém os detalhes de uma comunidade
@@ -128,25 +152,6 @@ def get_community_details(community_name: str, db=Depends(get_db)):
     cache = RedisCache()
     use_case = GetCommunityDetailsUseCase(reddit_provider, cache, db)
     return use_case.execute(community_name)
-
-
-@app.get("/communities/{community_name}/related")
-def get_related_communities(community_name: str, limit: int = 10, db=Depends(get_db)):
-    """
-    Busca comunidades relacionadas a uma comunidade
-
-    Args:
-        community_name: Nome da comunidade de origem
-        limit: Número máximo de comunidades relacionadas
-
-    Returns:
-        Lista de comunidades relacionadas
-    """
-    reddit_provider = GenericRedditProvider()
-    scraper = OldRedditScraper()
-    cache = RedisCache()
-    use_case = GetRelatedCommunitiesUseCase(reddit_provider, scraper, cache, db)
-    return use_case.execute(community_name, limit)
 
 
 # ==================== AUDIENCES ====================
@@ -260,3 +265,117 @@ def remove_community_from_audience(
     if not removed:
         raise HTTPException(status_code=404, detail="Community not found in audience")
     return {"removed": True}
+
+
+# ==================== AUDIENCE TEMPLATES ====================
+
+
+@app.get("/audience-templates")
+def list_audience_templates(
+    category: str | None = None,
+    active_only: bool = True,
+    db=Depends(get_db),
+):
+    """
+    Lista todos os templates de audiência disponíveis.
+
+    Args:
+        category: Filtrar por categoria (business, lifestyle, tech)
+        active_only: Apenas templates ativos (default: True)
+
+    Returns:
+        Lista de templates com suas comunidades
+    """
+    repository = AudienceTemplateRepository(db)
+    templates = repository.find_all(active_only=active_only, category=category)
+
+    result = []
+    for template in templates:
+        communities = repository.get_communities(template.id)
+        result.append(
+            {
+                "id": str(template.id),
+                "name": template.name,
+                "slug": template.slug,
+                "description": template.description,
+                "icon": template.icon,
+                "category": template.category,
+                "display_order": template.display_order,
+                "communities": [c.subreddit_name for c in communities],
+                "communities_count": len(communities),
+            }
+        )
+
+    return {"templates": result}
+
+
+@app.get("/audience-templates/{template_id}")
+def get_audience_template(template_id: UUID, db=Depends(get_db)):
+    """
+    Retorna detalhes de um template de audiência.
+    """
+    repository = AudienceTemplateRepository(db)
+    template = repository.find_by_id(template_id)
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    communities = repository.get_communities(template.id)
+
+    return {
+        "id": str(template.id),
+        "name": template.name,
+        "slug": template.slug,
+        "description": template.description,
+        "icon": template.icon,
+        "category": template.category,
+        "display_order": template.display_order,
+        "communities": [c.subreddit_name for c in communities],
+        "communities_count": len(communities),
+    }
+
+
+@app.post("/audience-templates/generate")
+def generate_audience_template(request: GenerateTemplateRequest, db=Depends(get_db)):
+    """
+    Gera um template de audiência usando LLM + Reddit search.
+
+    O LLM:
+    1. Gera keywords de busca baseado no nome
+    2. Busca subreddits relevantes no Reddit
+    3. Filtra e valida os melhores subreddits
+
+    Args:
+        request: Nome, descrição, ícone, categoria e max_subreddits
+
+    Returns:
+        Template gerado com subreddits encontrados
+    """
+    use_case = GenerateAudienceTemplateUseCase(db)
+    result = use_case.execute(
+        audience_name=request.name,
+        description=request.description,
+        icon=request.icon,
+        category=request.category,
+        max_subreddits=request.max_subreddits,
+    )
+
+    return {
+        "template": {
+            "id": str(result.template.id),
+            "name": result.template.name,
+            "slug": result.template.slug,
+            "description": result.template.description,
+            "icon": result.template.icon,
+            "category": result.template.category,
+        },
+        "subreddits_found": [
+            {
+                "name": s.name,
+                "title": s.title,
+                "subscribers": s.subscribers,
+            }
+            for s in result.subreddits_found
+        ],
+        "subreddits_added": result.subreddits_added,
+    }
