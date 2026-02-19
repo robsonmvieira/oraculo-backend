@@ -2,15 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import (
-    audiences_router,
     audience_templates_router,
+    audiences_router,
+    communities_router,
     similar_communities_router,
     topics_router,
 )
 
 app = FastAPI(
-    title="CRM API",
-    description="API para gerenciamento de leads e propostas",
+    title="Oracle API",
+    description="API para analisar comunidades do Reddit",
     version="0.1.0",
 )
 
@@ -33,6 +34,7 @@ app.include_router(topics_router)
 app.include_router(audiences_router)
 app.include_router(audience_templates_router)
 app.include_router(similar_communities_router)
+app.include_router(communities_router)
 
 
 @app.get("/")
