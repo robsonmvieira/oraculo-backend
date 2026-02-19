@@ -23,6 +23,7 @@ class CommunityStats(Base):
     icon_url = Column(String(1000), nullable=True)
     growth_week = Column(Float, nullable=True)  # Ex: 0.85 = 0.85%
     growth_month = Column(Float, nullable=True)
+    category = Column(String(50), nullable=True, index=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
