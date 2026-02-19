@@ -105,6 +105,23 @@ class CommunityStatsRepository:
         self.db.refresh(stats)
         return stats
 
+    def find_all(self, limit: int = 100) -> list[CommunityStats]:
+        """
+        Busca todas as comunidades com estatísticas.
+
+        Args:
+            limit: Número máximo de resultados
+
+        Returns:
+            Lista de CommunityStats
+        """
+        return (
+            self.db.query(CommunityStats)
+            .order_by(CommunityStats.subscribers.desc().nullslast())
+            .limit(limit)
+            .all()
+        )
+
     def find_top_growing(self, limit: int = 20) -> list[CommunityStats]:
         """
         Busca comunidades com maior crescimento semanal.
