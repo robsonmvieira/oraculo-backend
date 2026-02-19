@@ -20,7 +20,6 @@ wheels/
 .history
 .claude
 .env
-*.md
 .devcontainer/
 app.rest
 *.pdf
