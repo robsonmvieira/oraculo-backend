@@ -22,6 +22,7 @@ class CommunityStatsDTO:
     icon_url: str | None = None
     growth_week: float | None = None
     growth_month: float | None = None
+    category: str | None = None
 
     @classmethod
     def from_entity(cls, entity: CommunityStats) -> "CommunityStatsDTO":
@@ -33,6 +34,7 @@ class CommunityStatsDTO:
             icon_url=entity.icon_url,
             growth_week=entity.growth_week,
             growth_month=entity.growth_month,
+            category=entity.category,
         )
 
 
@@ -52,6 +54,7 @@ class CommunityStatsService:
         self,
         subreddit_name: str,
         reddit_data: dict | None = None,
+        category: str | None = None,
     ) -> CommunityStatsDTO | None:
         """
         Busca estatísticas de uma comunidade.
@@ -103,6 +106,7 @@ class CommunityStatsService:
             icon_url=icon_url,
             growth_week=growth_data.growth_week if growth_data else None,
             growth_month=growth_data.growth_month if growth_data else None,
+            category=category,
         )
 
         return CommunityStatsDTO.from_entity(stats)

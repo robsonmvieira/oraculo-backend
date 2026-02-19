@@ -55,6 +55,7 @@ class CommunityStatsRepository:
         icon_url: str | None = None,
         growth_week: float | None = None,
         growth_month: float | None = None,
+        category: str | None = None,
     ) -> CommunityStats:
         """
         Insere ou atualiza estatísticas de uma comunidade.
@@ -86,6 +87,8 @@ class CommunityStatsRepository:
                 existing.growth_week = growth_week
             if growth_month is not None:
                 existing.growth_month = growth_month
+            if category is not None:
+                existing.category = category
             existing.updated_at = datetime.now(timezone.utc)
             self.db.commit()
             self.db.refresh(existing)
@@ -99,6 +102,7 @@ class CommunityStatsRepository:
             icon_url=icon_url,
             growth_week=growth_week,
             growth_month=growth_month,
+            category=category,
         )
         self.db.add(stats)
         self.db.commit()
@@ -136,6 +140,69 @@ class CommunityStatsRepository:
             self.db.query(CommunityStats)
             .filter(CommunityStats.growth_week.isnot(None))
             .order_by(CommunityStats.growth_week.desc())
+            .limit(limit)
+            .all()
+        )
+
+    def browse(
+        self,
+        sort: str = "subscribers",
+        category: str | None = None,
+        search: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[CommunityStats], int]:
+        """
+        Browse comunidades com filtros, ordenação e paginação.
+
+        Returns:
+            Tupla (resultados, total)
+        """
+        query = self.db.query(CommunityStats)
+
+        if category:
+            query = query.filter(CommunityStats.category == category)
+
+        if search:
+            search_term = f"%{search.lower()}%"
+            query = query.filter(
+                (CommunityStats.subreddit_name.ilike(search_term))
+                | (CommunityStats.title.ilike(search_term))
+            )
+
+        total = query.count()
+
+        sort_map = {
+            "subscribers": CommunityStats.subscribers.desc().nullslast(),
+            "growth_week": CommunityStats.growth_week.desc().nullslast(),
+            "growth_month": CommunityStats.growth_month.desc().nullslast(),
+        }
+        order = sort_map.get(sort, sort_map["subscribers"])
+        query = query.order_by(order)
+
+        results = query.offset(offset).limit(limit).all()
+
+        return results, total
+
+    def get_categories(self) -> list[str]:
+        """Retorna categorias distintas existentes."""
+        rows = (
+            self.db.query(CommunityStats.category)
+            .filter(CommunityStats.category.isnot(None))
+            .distinct()
+            .all()
+        )
+        return sorted([row[0] for row in rows])
+
+    def find_oldest_updated(self, limit: int = 20) -> list[CommunityStats]:
+        """
+        Busca comunidades com updated_at mais antigo.
+        Usado pelo script de expansão para processar rotativamente.
+        """
+        return (
+            self.db.query(CommunityStats)
+            .filter(CommunityStats.subscribers.isnot(None))
+            .order_by(CommunityStats.updated_at.asc())
             .limit(limit)
             .all()
         )
