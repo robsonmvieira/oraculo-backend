@@ -16,7 +16,7 @@ from app.modules.audience_templates.infra.repositories.audience_template_reposit
 from app.modules.shared.application.services.community_stats_service import (
     CommunityStatsService,
 )
-from app.modules.shared.infra.database.database import get_db, SessionLocal
+from app.modules.shared.infra.database.database import SessionLocal, get_db
 from app.modules.shared.infra.repositories.community_stats_repository import (
     CommunityStatsRepository,
 )
@@ -28,6 +28,8 @@ router = APIRouter(prefix="/audience-templates", tags=["Audience Templates"])
 
 
 class GenerateTemplateRequest(BaseModel):
+    """Request body for generating a template."""
+
     name: str
     description: str | None = None
     icon: str | None = None
@@ -52,11 +54,22 @@ def list_audience_templates(
         Lista de templates com suas comunidades
     """
     repository = AudienceTemplateRepository(db)
+    stats_repo = CommunityStatsRepository(db)
     templates = repository.find_all(active_only=active_only, category=category)
 
     result = []
     for template in templates:
         communities = repository.get_communities(template.id)
+        community_names = [c.subreddit_name for c in communities]
+
+        total_subscribers = 0
+        subscribers_loaded = 0
+        for name in community_names:
+            cached = stats_repo.find_by_name(name)
+            if cached and cached.subscribers is not None:
+                total_subscribers += cached.subscribers
+                subscribers_loaded += 1
+
         result.append(
             {
                 "id": str(template.id),
@@ -66,8 +79,10 @@ def list_audience_templates(
                 "icon": template.icon,
                 "category": template.category,
                 "display_order": template.display_order,
-                "communities": [c.subreddit_name for c in communities],
+                "communities": community_names,
                 "communities_count": len(communities),
+                "total_subscribers": total_subscribers,
+                "subscribers_loaded": subscribers_loaded,
             }
         )
 
@@ -132,6 +147,13 @@ def get_audience_template(template_id: UUID, db=Depends(get_db)):
     if communities_to_fetch:
         _fetch_community_stats_in_background(communities_to_fetch)
 
+    # Calcular total de subscribers das comunidades com dados carregados
+    subscribers_with_data = [
+        c["subscribers"] for c in enriched_communities if c["subscribers"] is not None
+    ]
+    total_subscribers = sum(subscribers_with_data)
+    subscribers_loaded = len(subscribers_with_data)
+
     return {
         "id": str(template.id),
         "name": template.name,
@@ -143,6 +165,8 @@ def get_audience_template(template_id: UUID, db=Depends(get_db)):
         "communities": enriched_communities,
         "communities_count": len(communities),
         "communities_loading": len(communities_to_fetch),
+        "total_subscribers": total_subscribers,
+        "subscribers_loaded": subscribers_loaded,
     }
 
 
