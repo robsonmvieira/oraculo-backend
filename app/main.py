@@ -1,6 +1,11 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import logging
+import traceback
 
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.config import settings
 from app.routes import (
     audience_templates_router,
     audiences_router,
@@ -9,11 +14,35 @@ from app.routes import (
     topics_router,
 )
 
+logging.basicConfig(
+    level=logging.DEBUG if settings.debug == "1" else logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+)
+logger = logging.getLogger("oracle")
+
 app = FastAPI(
     title="Oracle API",
     description="API para analisar comunidades do Reddit",
     version="0.1.0",
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        "Unhandled error on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=True,
+    )
+    body: dict = {
+        "detail": "Internal Server Error",
+    }
+    if settings.app_env == "development":
+        body["error"] = str(exc)
+        body["traceback"] = traceback.format_exception(exc)
+    return JSONResponse(status_code=500, content=body)
 
 # CORS configuration
 app.add_middleware(

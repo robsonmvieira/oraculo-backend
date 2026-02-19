@@ -185,8 +185,8 @@ def main():
     parser.add_argument(
         "--delay",
         type=int,
-        default=1,
-        help="Delay entre requests ao Reddit em segundos (default: 1)",
+        default=7,
+        help="Delay entre requests ao Reddit em segundos (default: 7)",
     )
     args = parser.parse_args()
 
