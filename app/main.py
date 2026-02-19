@@ -1,7 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import audiences_router, audience_templates_router, topics_router
+from app.routes import (
+    audiences_router,
+    audience_templates_router,
+    similar_communities_router,
+    topics_router,
+)
 
 app = FastAPI(
     title="CRM API",
@@ -27,6 +32,7 @@ app.add_middleware(
 app.include_router(topics_router)
 app.include_router(audiences_router)
 app.include_router(audience_templates_router)
+app.include_router(similar_communities_router)
 
 
 @app.get("/")
