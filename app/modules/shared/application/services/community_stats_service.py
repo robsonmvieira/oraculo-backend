@@ -93,8 +93,8 @@ class CommunityStatsService:
             if icon_url:
                 icon_url = icon_url.replace("&amp;", "&")
 
-        # 4. Se temos growth_data, usar subscribers dela (pode ser mais atual)
-        if growth_data and growth_data.subscribers:
+        # 4. Se NÃO temos subscribers do Reddit, usar da growth_data como fallback
+        if not subscribers and growth_data and growth_data.subscribers:
             subscribers = growth_data.subscribers
 
         # 5. Salvar no banco
