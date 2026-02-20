@@ -13,13 +13,15 @@ class TaskType(str, Enum):
     RELATED_TERMS = "related_terms"
     PAIN_ANALYSIS = "pain_analysis"
     THEME_SUMMARY = "theme_summary"
+    COMMUNITY_CATEGORIZATION = "community_categorization"
 
 
 # TTL em horas para cada tipo de task
 TTL_CONFIG = {
-    TaskType.RELATED_TERMS: 720,  # 30 dias
-    TaskType.PAIN_ANALYSIS: 48,   # 48 horas
-    TaskType.THEME_SUMMARY: 24,   # 24 horas
+    TaskType.RELATED_TERMS: 720,              # 30 dias
+    TaskType.PAIN_ANALYSIS: 48,               # 48 horas
+    TaskType.THEME_SUMMARY: 24,               # 24 horas
+    TaskType.COMMUNITY_CATEGORIZATION: 720,   # 30 dias
 }
 
 
