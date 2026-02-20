@@ -33,7 +33,7 @@ AUDIENCE_NOT_FOUND = "Audience not found"
 class CreateAudienceRequest(BaseModel):
     name: str
     description: str | None = None
-    community_ids: list[str] = []
+    subreddit_names: list[str] = []
 
 
 class UpdateAudienceRequest(BaseModel):
@@ -75,14 +75,14 @@ def create_audience(
 ):
     """
     Cria uma nova audiência vinculada ao usuário autenticado.
-    Aceita community_ids para vincular comunidades na criação.
+    Aceita subreddit_names para vincular comunidades na criação.
     """
     use_case = CreateAudienceUseCase(db)
     input_data = CreateAudienceInput(
         name=request.name,
         description=request.description,
         user_id=current_user.id,
-        community_ids=request.community_ids,
+        subreddit_names=request.subreddit_names,
     )
     audience = use_case.execute(input_data)
     return vars(audience)

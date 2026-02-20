@@ -26,7 +26,7 @@ class CreateAudienceInput:
     name: str
     user_id: UUID
     description: str | None = None
-    community_ids: list[str] = field(default_factory=list)
+    subreddit_names: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -50,10 +50,10 @@ class CreateAudienceUseCase:
             user_id=input_data.user_id,
         )
 
-        for subreddit_name in input_data.community_ids:
+        for subreddit_name in input_data.subreddit_names:
             self.repository.add_community(audience.id, subreddit_name)
 
-        communities_count = len(input_data.community_ids)
+        communities_count = len(input_data.subreddit_names)
 
         return AudienceDTO(
             id=audience.id,
