@@ -37,38 +37,78 @@ class BrowseCommunitiesUseCase:
         limit: int = 20,
         offset: int = 0,
     ) -> dict:
-        local_results, local_total = self.repo.browse(
-            sort=sort,
-            category=category,
-            search=search,
-            limit=limit,
-            offset=offset,
+        if not search:
+            return self._browse_catalog(sort, category, limit, offset)
+
+        return self._browse_with_search(sort, category, search, limit, offset)
+
+    def _browse_catalog(
+        self, sort: str, category: str | None, limit: int, offset: int
+    ) -> dict:
+        results, total = self.repo.browse(
+            sort=sort, category=category, limit=limit, offset=offset,
+        )
+        logger.info(
+            "[BROWSE] catalog mode | results=%d | total=%d", len(results), total,
+        )
+        return self._format_response(results, total, limit, offset)
+
+    def _browse_with_search(
+        self,
+        sort: str,
+        category: str | None,
+        search: str,
+        limit: int,
+        offset: int,
+    ) -> dict:
+        # Fetch ALL local matches (no pagination at DB level)
+        local_results, _ = self.repo.browse(
+            sort=sort, category=category, search=search,
+            limit=500, offset=0,
+        )
+        logger.info(
+            "[BROWSE] search='%s' | local_matches=%d | limit=%d | offset=%d",
+            search, len(local_results), limit, offset,
         )
 
-        needs_fallback = (
-            search
-            and len(local_results) < limit
-            and offset == 0
-        )
+        needs_fallback = len(local_results) < limit
 
         if not needs_fallback:
-            return self._format_response(local_results, local_total, limit, offset)
+            all_results = self._sort_results(local_results, sort, search)
+            page = all_results[offset:offset + limit]
+            total = len(all_results)
+            logger.info("[BROWSE] local sufficient, returning %d of %d", len(page), total)
+            return self._format_response(page, total, limit, offset)
 
+        # Fallback to Reddit (Redis cache serves page 2+ without hitting API)
         reddit_communities = self._fetch_reddit_communities(search)
+        logger.info("[BROWSE] reddit fetched: %d", len(reddit_communities))
+
         filtered = self._filter_reddit_results(reddit_communities)
+        logger.info(
+            "[BROWSE] after filter (>=%d subs, not NSFW): %d passed",
+            MIN_SUBSCRIBERS, len(filtered),
+        )
 
         local_names = {c.subreddit_name.lower() for c in local_results}
         new_communities = [
             c for c in filtered
             if c["display_name"].lower() not in local_names
         ]
+        logger.info("[BROWSE] dedup: %d new, %d already local",
+            len(new_communities), len(filtered) - len(new_communities),
+        )
 
         saved_entities = self._persist_reddit_results(new_communities)
+        logger.info("[BROWSE] persisted: %d", len(saved_entities))
 
         all_results = list(local_results) + saved_entities
-        all_results = self._sort_results(all_results, sort)
-        page = all_results[:limit]
-        total = local_total + len(saved_entities)
+        all_results = self._sort_results(all_results, sort, search)
+        total = len(all_results)
+        page = all_results[offset:offset + limit]
+
+        final_names = [c.subreddit_name for c in page]
+        logger.info("[BROWSE] final: %d of %d | %s", len(page), total, final_names)
 
         return self._format_response(page, total, limit, offset)
 
@@ -140,14 +180,35 @@ class BrowseCommunitiesUseCase:
         return saved
 
     @staticmethod
-    def _sort_results(results: list, sort: str) -> list:
+    def _sort_results(
+        results: list, sort: str, search: str | None = None
+    ) -> list:
         sort_key_map = {
             "subscribers": lambda c: c.subscribers or 0,
             "growth_week": lambda c: c.growth_week or 0,
             "growth_month": lambda c: c.growth_month or 0,
         }
-        key_fn = sort_key_map.get(sort, sort_key_map["subscribers"])
-        return sorted(results, key=key_fn, reverse=True)
+        metric_fn = sort_key_map.get(sort, sort_key_map["subscribers"])
+
+        if not search:
+            return sorted(results, key=metric_fn, reverse=True)
+
+        term = search.lower()
+
+        def relevance_key(c):
+            name = c.subreddit_name.lower()
+            # Tier 0: exact match (highest priority)
+            # Tier 1: name contains search term
+            # Tier 2: everything else
+            if name == term:
+                tier = 0
+            elif term in name:
+                tier = 1
+            else:
+                tier = 2
+            return (tier, -(metric_fn(c)))
+
+        return sorted(results, key=relevance_key)
 
     @staticmethod
     def _format_response(
