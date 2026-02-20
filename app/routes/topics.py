@@ -2,6 +2,8 @@
 
 from fastapi import APIRouter, Depends
 
+from app.modules.identity.dependencies import get_current_user
+from app.modules.identity.domain.entities.user import User
 from app.modules.shared.infra.cache.redit_cache import RedisCache
 from app.modules.shared.infra.database.database import get_db
 from app.modules.topics.application.use_cases.general_use_case.general_use_case import (
@@ -21,7 +23,7 @@ router = APIRouter(tags=["Topics"])
 
 
 @router.get("/topics")
-def get_topics():
+def get_topics(current_user: User = Depends(get_current_user)):
     """
     Lista os tópicos populares, trending e novos
     """
@@ -41,6 +43,7 @@ def search_community(
     community_name: str,
     sort_by: str = "relevance",
     include_growth: bool = True,
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -65,7 +68,7 @@ def search_community(
 
 
 @router.get("/community-details/{community_name}")
-def get_community_details(community_name: str, db=Depends(get_db)):
+def get_community_details(community_name: str, current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """
     Obtém os detalhes de uma comunidade
 
