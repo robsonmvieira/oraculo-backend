@@ -194,6 +194,24 @@ class CommunityStatsRepository:
         )
         return sorted([row[0] for row in rows])
 
+    def find_uncategorized(self, limit: int = 100) -> list[CommunityStats]:
+        """
+        Busca comunidades sem categoria definida.
+
+        Args:
+            limit: Número máximo de resultados
+
+        Returns:
+            Lista de CommunityStats com category=NULL
+        """
+        return (
+            self.db.query(CommunityStats)
+            .filter(CommunityStats.category.is_(None))
+            .order_by(CommunityStats.created_at.asc())
+            .limit(limit)
+            .all()
+        )
+
     def find_oldest_updated(self, limit: int = 20) -> list[CommunityStats]:
         """
         Busca comunidades com updated_at mais antigo.
