@@ -71,16 +71,8 @@ class BrowseCommunitiesUseCase:
             search, len(local_results), limit, offset,
         )
 
-        needs_fallback = len(local_results) < limit
-
-        if not needs_fallback:
-            all_results = self._sort_results(local_results, sort, search)
-            page = all_results[offset:offset + limit]
-            total = len(all_results)
-            logger.info("[BROWSE] local sufficient, returning %d of %d", len(page), total)
-            return self._format_response(page, total, limit, offset)
-
-        # Fallback to Reddit (Redis cache serves page 2+ without hitting API)
+        # Sempre consultar Reddit para manter subscribers atualizados
+        # (Redis cache 30min evita hits desnecessários na API)
         reddit_communities = self._fetch_reddit_communities(search)
         logger.info("[BROWSE] reddit fetched: %d", len(reddit_communities))
 
@@ -95,15 +87,25 @@ class BrowseCommunitiesUseCase:
             c for c in filtered
             if c["display_name"].lower() not in local_names
         ]
+        existing_communities = [
+            c for c in filtered
+            if c["display_name"].lower() in local_names
+        ]
         logger.info("[BROWSE] dedup: %d new, %d already local",
             len(new_communities), len(filtered) - len(new_communities),
         )
 
+        self._update_existing_subscribers(existing_communities)
         saved_entities = self._persist_reddit_results(new_communities)
         logger.info("[BROWSE] persisted: %d", len(saved_entities))
 
-        all_results = list(local_results) + saved_entities
-        all_results = self._sort_results(all_results, sort, search)
+        # Re-fetch para refletir subscribers atualizados + novas comunidades
+        all_results_db, _ = self.repo.browse(
+            sort=sort, category=category, search=search,
+            limit=500, offset=0,
+        )
+
+        all_results = self._sort_results(list(all_results_db), sort, search)
         total = len(all_results)
         page = all_results[offset:offset + limit]
 
@@ -149,6 +151,25 @@ class BrowseCommunitiesUseCase:
             if (c.get("subscribers") or 0) >= MIN_SUBSCRIBERS
             and not c.get("over18", False)
         ]
+
+    def _update_existing_subscribers(self, communities: list[dict]) -> None:
+        """Atualiza subscriber count de comunidades já existentes no banco."""
+        for c in communities:
+            name = c.get("display_name", "")
+            subscribers = c.get("subscribers")
+            if not name or not subscribers:
+                continue
+            try:
+                self.repo.upsert(
+                    subreddit_name=name,
+                    subscribers=subscribers,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to update subscribers for '%s'",
+                    name,
+                    exc_info=True,
+                )
 
     def _persist_reddit_results(self, communities: list[dict]) -> list:
         saved = []
