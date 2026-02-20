@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -15,7 +15,7 @@ class AudienceDTO:
     id: UUID
     name: str
     description: str | None
-    user_id: UUID | None
+    user_id: UUID
     communities_count: int
 
 
@@ -24,8 +24,9 @@ class CreateAudienceInput:
     """Input para criar audiência."""
 
     name: str
+    user_id: UUID
     description: str | None = None
-    user_id: UUID | None = None
+    community_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -37,7 +38,7 @@ class UpdateAudienceInput:
 
 
 class CreateAudienceUseCase:
-    """Cria uma nova audiência."""
+    """Cria uma nova audiência com comunidades opcionais."""
 
     def __init__(self, db: Session):
         self.repository = AudienceRepository(db)
@@ -48,12 +49,18 @@ class CreateAudienceUseCase:
             description=input_data.description,
             user_id=input_data.user_id,
         )
+
+        for subreddit_name in input_data.community_ids:
+            self.repository.add_community(audience.id, subreddit_name)
+
+        communities_count = len(input_data.community_ids)
+
         return AudienceDTO(
             id=audience.id,
             name=audience.name,
             description=audience.description,
             user_id=audience.user_id,
-            communities_count=0,
+            communities_count=communities_count,
         )
 
 
