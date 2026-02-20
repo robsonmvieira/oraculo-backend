@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.routes import (
+    auth_router,
     audience_templates_router,
     audiences_router,
     communities_router,
@@ -59,6 +60,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(topics_router)
 app.include_router(audiences_router)
 app.include_router(audience_templates_router)

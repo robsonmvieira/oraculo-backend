@@ -2,6 +2,8 @@
 
 from fastapi import APIRouter, Depends, Query
 
+from app.modules.identity.dependencies import get_current_user
+from app.modules.identity.domain.entities.user import User
 from app.modules.shared.infra.cache.redit_cache import RedisCache
 from app.modules.shared.infra.database.database import get_db
 from app.modules.shared.infra.repositories.community_stats_repository import (
@@ -27,6 +29,7 @@ def browse_communities(
     search: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -49,7 +52,7 @@ def browse_communities(
 
 
 @router.get("/communities/categories")
-def list_categories(db=Depends(get_db)):
+def list_categories(current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """Retorna categorias distintas existentes na base."""
     repo = CommunityStatsRepository(db)
     categories = repo.get_categories()

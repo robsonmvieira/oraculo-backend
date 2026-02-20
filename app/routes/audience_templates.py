@@ -7,6 +7,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.modules.identity.dependencies import get_current_user
+from app.modules.identity.domain.entities.user import User
 from app.modules.audience_templates.application.use_cases.generate_audience_template_use_case import (
     GenerateAudienceTemplateUseCase,
 )
@@ -41,6 +43,7 @@ class GenerateTemplateRequest(BaseModel):
 def list_audience_templates(
     category: str | None = None,
     active_only: bool = True,
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -90,7 +93,7 @@ def list_audience_templates(
 
 
 @router.get("/{template_id}")
-def get_audience_template(template_id: UUID, db=Depends(get_db)):
+def get_audience_template(template_id: UUID, current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """
     Retorna detalhes de um template de audiência com dados enriquecidos.
 
@@ -200,7 +203,7 @@ def _fetch_community_stats_in_background(community_names: list[str]) -> None:
 
 
 @router.post("/generate")
-def generate_audience_template(request: GenerateTemplateRequest, db=Depends(get_db)):
+def generate_audience_template(request: GenerateTemplateRequest, current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """
     Gera um template de audiência usando LLM + Reddit search.
 

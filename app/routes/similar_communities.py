@@ -2,9 +2,11 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from app.modules.identity.dependencies import get_current_user
+from app.modules.identity.domain.entities.user import User
 from app.modules.audience_templates.infra.repositories.audience_template_repository import (
     AudienceTemplateRepository,
 )
@@ -41,24 +43,19 @@ class FeedbackResponse(BaseModel):
     context_type: str
 
 
-def _get_user_id(x_user_id: str | None = Header(None, alias="X-User-Id")) -> str:
-    """Get user ID from header or generate session-based one."""
-    return x_user_id or "anonymous"
-
-
 @router.get("/communities/{community_name}/similar")
 def get_similar_communities(
     community_name: str,
     limit: int = Query(default=10, ge=1, le=50),
     min_similarity: float = Query(default=0.5, ge=0.0, le=1.0),
-    user_id: str = Depends(_get_user_id),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
     Find communities similar to a given subreddit.
 
     Uses semantic embedding similarity to find related communities.
-    Results are personalized based on user feedback if X-User-Id header is provided.
+    Results are personalized based on user feedback.
 
     Args:
         community_name: The source subreddit name
@@ -71,7 +68,7 @@ def get_similar_communities(
     service = SimilarCommunitiesService(db)
     result = service.find_similar_to_community(
         subreddit_name=community_name,
-        user_id=user_id if user_id != "anonymous" else None,
+        user_id=str(current_user.id),
         limit=limit,
         min_similarity=min_similarity,
     )
@@ -99,7 +96,7 @@ def get_audience_suggestions(
     audience_id: UUID,
     limit: int = Query(default=10, ge=1, le=50),
     min_similarity: float = Query(default=0.5, ge=0.0, le=1.0),
-    user_id: str = Depends(_get_user_id),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -138,7 +135,7 @@ def get_audience_suggestions(
     service = SimilarCommunitiesService(db)
     result = service.find_similar_to_audience(
         community_names=community_names,
-        user_id=user_id if user_id != "anonymous" else None,
+        user_id=str(current_user.id),
         limit=limit,
         min_similarity=min_similarity,
     )
@@ -168,7 +165,7 @@ def get_template_suggestions(
     template_id: UUID,
     limit: int = Query(default=10, ge=1, le=50),
     min_similarity: float = Query(default=0.5, ge=0.0, le=1.0),
-    user_id: str = Depends(_get_user_id),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -205,7 +202,7 @@ def get_template_suggestions(
     service = SimilarCommunitiesService(db)
     result = service.find_similar_to_audience(
         community_names=community_names,
-        user_id=user_id if user_id != "anonymous" else None,
+        user_id=str(current_user.id),
         limit=limit,
         min_similarity=min_similarity,
     )
@@ -233,7 +230,7 @@ def get_template_suggestions(
 @router.post("/feedback/community", response_model=FeedbackResponse)
 def save_community_feedback(
     request: FeedbackRequest,
-    user_id: str = Depends(_get_user_id),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -270,7 +267,7 @@ def save_community_feedback(
     context_uuid = UUID(request.context_id) if request.context_id else None
 
     result = service.save_feedback(
-        user_id=user_id,
+        user_id=str(current_user.id),
         subreddit_name=request.subreddit_name,
         feedback=request.feedback,
         context_type=request.context_type,
@@ -284,7 +281,7 @@ def save_community_feedback(
 def delete_community_feedback(
     subreddit_name: str,
     context_type: str | None = Query(default=None),
-    user_id: str = Depends(_get_user_id),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -305,7 +302,7 @@ def delete_community_feedback(
 
     repo = UserFeedbackRepository(db)
     deleted = repo.delete_feedback(
-        user_id=user_id,
+        user_id=str(current_user.id),
         subreddit_name=subreddit_name,
         context_type=context_type,
     )

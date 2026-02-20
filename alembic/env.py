@@ -36,6 +36,7 @@ from app.models import (  # noqa: E402
     status_lead,
     tarefa_lead,
 )
+from app.modules.identity.domain.entities import user  # noqa: E402
 
 target_metadata = Base.metadata
 

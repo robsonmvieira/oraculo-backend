@@ -5,6 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.modules.identity.dependencies import get_current_user
+from app.modules.identity.domain.entities.user import User
 from app.modules.audiences.application.use_cases.get_audience_card_use_case import (
     GetAudienceCardUseCase,
     ListAudienceCardsUseCase,
@@ -38,7 +40,7 @@ class AddCommunityRequest(BaseModel):
 
 
 @router.get("")
-def list_audiences(db=Depends(get_db)):
+def list_audiences(current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """
     Lista todas as audiências com dados agregados para os cards.
 
@@ -51,7 +53,7 @@ def list_audiences(db=Depends(get_db)):
 
 
 @router.post("")
-def create_audience(request: CreateAudienceRequest, db=Depends(get_db)):
+def create_audience(request: CreateAudienceRequest, current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """
     Cria uma nova audiência.
 
@@ -71,7 +73,7 @@ def create_audience(request: CreateAudienceRequest, db=Depends(get_db)):
 
 
 @router.get("/{audience_id}")
-def get_audience_card(audience_id: UUID, db=Depends(get_db)):
+def get_audience_card(audience_id: UUID, current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """
     Retorna dados agregados de uma audiência para o card.
 
@@ -87,7 +89,7 @@ def get_audience_card(audience_id: UUID, db=Depends(get_db)):
 
 @router.put("/{audience_id}")
 def update_audience(
-    audience_id: UUID, request: UpdateAudienceRequest, db=Depends(get_db)
+    audience_id: UUID, request: UpdateAudienceRequest, current_user: User = Depends(get_current_user), db=Depends(get_db)
 ):
     """
     Atualiza uma audiência.
@@ -104,7 +106,7 @@ def update_audience(
 
 
 @router.delete("/{audience_id}")
-def delete_audience(audience_id: UUID, db=Depends(get_db)):
+def delete_audience(audience_id: UUID, current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """
     Remove uma audiência.
     """
@@ -117,7 +119,7 @@ def delete_audience(audience_id: UUID, db=Depends(get_db)):
 
 @router.post("/{audience_id}/communities")
 def add_community_to_audience(
-    audience_id: UUID, request: AddCommunityRequest, db=Depends(get_db)
+    audience_id: UUID, request: AddCommunityRequest, current_user: User = Depends(get_current_user), db=Depends(get_db)
 ):
     """
     Adiciona uma comunidade a uma audiência.
@@ -135,7 +137,7 @@ def add_community_to_audience(
 
 @router.delete("/{audience_id}/communities/{subreddit_name}")
 def remove_community_from_audience(
-    audience_id: UUID, subreddit_name: str, db=Depends(get_db)
+    audience_id: UUID, subreddit_name: str, current_user: User = Depends(get_current_user), db=Depends(get_db)
 ):
     """
     Remove uma comunidade de uma audiência.
