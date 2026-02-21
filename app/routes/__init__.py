@@ -5,6 +5,7 @@ from app.routes.topics import router as topics_router
 from app.routes.audiences import router as audiences_router
 from app.routes.audience_templates import router as audience_templates_router
 from app.routes.audience_topics import router as audience_topics_router
+from app.routes.audience_keywords import router as audience_keywords_router
 from app.routes.similar_communities import router as similar_communities_router
 from app.routes.communities import router as communities_router
 
@@ -14,6 +15,7 @@ __all__ = [
     "audiences_router",
     "audience_templates_router",
     "audience_topics_router",
+    "audience_keywords_router",
     "similar_communities_router",
     "communities_router",
 ]
