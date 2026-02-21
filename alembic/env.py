@@ -46,6 +46,7 @@ from app.modules.similar_communities.domain.entities import community_embedding 
 from app.modules.similar_communities.domain.entities import user_feedback  # noqa: E402
 from app.modules.audience_templates.domain.entities import audience_template  # noqa: E402
 from app.modules.audience_topics.domain.entities import audience_topic  # noqa: E402
+from app.modules.audience_keywords.domain.entities import audience_keyword  # noqa: E402
 
 target_metadata = [LegacyBase.metadata, Base.metadata]
 

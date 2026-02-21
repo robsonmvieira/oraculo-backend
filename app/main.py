@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.routes import (
     auth_router,
+    audience_keywords_router,
     audience_templates_router,
     audience_topics_router,
     audiences_router,
@@ -66,6 +67,7 @@ app.include_router(topics_router)
 app.include_router(audiences_router)
 app.include_router(audience_templates_router)
 app.include_router(audience_topics_router)
+app.include_router(audience_keywords_router)
 app.include_router(similar_communities_router)
 app.include_router(communities_router)
 
