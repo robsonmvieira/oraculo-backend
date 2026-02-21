@@ -23,6 +23,8 @@ class CommunityStatsDTO:
     growth_week: float | None = None
     growth_month: float | None = None
     category: str | None = None
+    size_tag: str | None = None
+    activity_tag: str | None = None
 
     @classmethod
     def from_entity(cls, entity: CommunityStats) -> "CommunityStatsDTO":
@@ -35,6 +37,8 @@ class CommunityStatsDTO:
             growth_week=entity.growth_week,
             growth_month=entity.growth_month,
             category=entity.category,
+            size_tag=entity.size_tag,
+            activity_tag=entity.activity_tag,
         )
 
 
