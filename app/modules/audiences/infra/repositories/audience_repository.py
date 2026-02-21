@@ -142,6 +142,36 @@ class AudienceRepository:
         self.db.commit()
         return True
 
+    def sync_communities(
+        self,
+        audience_id: UUID,
+        subreddit_names: list[str],
+    ) -> list[AudienceCommunity]:
+        """
+        Sincroniza comunidades de uma audiência com a lista desejada.
+        Remove as que não estão na lista, adiciona as novas.
+        """
+        current = self.get_communities(audience_id)
+        current_names = {c.subreddit_name for c in current}
+        desired_names = {name.lower() for name in subreddit_names}
+
+        to_remove = current_names - desired_names
+        to_add = desired_names - current_names
+
+        if to_remove:
+            self.db.query(AudienceCommunity).filter(
+                AudienceCommunity.audience_id == audience_id,
+                AudienceCommunity.subreddit_name.in_(to_remove),
+            ).delete(synchronize_session="fetch")
+
+        for name in to_add:
+            self.db.add(
+                AudienceCommunity(audience_id=audience_id, subreddit_name=name)
+            )
+
+        self.db.commit()
+        return self.get_communities(audience_id)
+
     def get_communities(self, audience_id: UUID) -> list[AudienceCommunity]:
         """
         Lista comunidades de uma audiência.
