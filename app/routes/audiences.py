@@ -39,6 +39,7 @@ class CreateAudienceRequest(BaseModel):
 class UpdateAudienceRequest(BaseModel):
     name: str | None = None
     description: str | None = None
+    subreddit_names: list[str] | None = None
 
 
 class AddCommunityRequest(BaseModel):
@@ -128,6 +129,7 @@ def update_audience(
     input_data = UpdateAudienceInput(
         name=request.name,
         description=request.description,
+        subreddit_names=request.subreddit_names,
     )
     updated = use_case.execute(audience_id, input_data)
     return vars(updated)

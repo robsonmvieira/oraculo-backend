@@ -35,6 +35,7 @@ class UpdateAudienceInput:
 
     name: str | None = None
     description: str | None = None
+    subreddit_names: list[str] | None = None
 
 
 class CreateAudienceUseCase:
@@ -81,12 +82,20 @@ class UpdateAudienceUseCase:
         if not audience:
             return None
 
+        if input_data.subreddit_names is not None:
+            communities = self.repository.sync_communities(
+                audience_id, input_data.subreddit_names
+            )
+            communities_count = len(communities)
+        else:
+            communities_count = len(audience.communities)
+
         return AudienceDTO(
             id=audience.id,
             name=audience.name,
             description=audience.description,
             user_id=audience.user_id,
-            communities_count=len(audience.communities),
+            communities_count=communities_count,
         )
 
 
