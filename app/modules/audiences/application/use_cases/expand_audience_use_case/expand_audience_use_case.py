@@ -96,13 +96,21 @@ class ExpandAudienceUseCase:
         cached = self.cache_service.get(cache_key, TaskType.AUDIENCE_EXPANSION)
         if cached:
             logger.info("Audience expansion cache HIT for %s", audience.name)
+            # Re-filter cached suggestions against current feedback
+            # (feedback may have changed after the cache was created)
+            negative_names = self.feedback_repo.get_negative_feedback_names(user_id)
+            negative_set = {n.lower() for n in negative_names}
+            filtered_suggestions = [
+                s for s in cached["suggestions"]
+                if s.get("subreddit_name", s.get("name", "")).lower() not in negative_set
+            ]
             return AudienceExpansionResult(
                 audience_id=cached["audience_id"],
                 audience_name=cached["audience_name"],
                 audience_theme=cached["audience_theme"],
-                suggestions=cached["suggestions"],
-                total_found=cached["total_found"],
-                filtered_by_feedback=cached["filtered_by_feedback"],
+                suggestions=filtered_suggestions,
+                total_found=len(filtered_suggestions),
+                filtered_by_feedback=len(negative_names),
             )
 
         logger.info("Audience expansion cache MISS for %s — running agent", audience.name)
