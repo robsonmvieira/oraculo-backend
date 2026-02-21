@@ -1,11 +1,17 @@
+import logging
 from dataclasses import dataclass, field
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.modules.audience_topics.application.use_cases.trigger_topic_analysis_use_case import (
+    TriggerTopicAnalysisUseCase,
+)
 from app.modules.audiences.infra.repositories.audience_repository import (
     AudienceRepository,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -43,6 +49,7 @@ class CreateAudienceUseCase:
 
     def __init__(self, db: Session):
         self.repository = AudienceRepository(db)
+        self.trigger_topics = TriggerTopicAnalysisUseCase(db)
 
     def execute(self, input_data: CreateAudienceInput) -> AudienceDTO:
         audience = self.repository.create(
@@ -55,6 +62,10 @@ class CreateAudienceUseCase:
             self.repository.add_community(audience.id, subreddit_name)
 
         communities_count = len(input_data.subreddit_names)
+
+        # Dispara análise de tópicos em background se há comunidades
+        if input_data.subreddit_names:
+            self.trigger_topics.execute(audience.id)
 
         return AudienceDTO(
             id=audience.id,
@@ -70,6 +81,7 @@ class UpdateAudienceUseCase:
 
     def __init__(self, db: Session):
         self.repository = AudienceRepository(db)
+        self.trigger_topics = TriggerTopicAnalysisUseCase(db)
 
     def execute(
         self, audience_id: UUID, input_data: UpdateAudienceInput
@@ -87,6 +99,9 @@ class UpdateAudienceUseCase:
                 audience_id, input_data.subreddit_names
             )
             communities_count = len(communities)
+
+            # Dispara análise de tópicos quando comunidades mudam
+            self.trigger_topics.execute(audience_id)
         else:
             communities_count = len(audience.communities)
 
@@ -114,9 +129,12 @@ class AddCommunityToAudienceUseCase:
 
     def __init__(self, db: Session):
         self.repository = AudienceRepository(db)
+        self.trigger_topics = TriggerTopicAnalysisUseCase(db)
 
     def execute(self, audience_id: UUID, subreddit_name: str) -> bool:
         result = self.repository.add_community(audience_id, subreddit_name)
+        if result is not None:
+            self.trigger_topics.execute(audience_id)
         return result is not None
 
 
@@ -125,6 +143,10 @@ class RemoveCommunityFromAudienceUseCase:
 
     def __init__(self, db: Session):
         self.repository = AudienceRepository(db)
+        self.trigger_topics = TriggerTopicAnalysisUseCase(db)
 
     def execute(self, audience_id: UUID, subreddit_name: str) -> bool:
-        return self.repository.remove_community(audience_id, subreddit_name)
+        removed = self.repository.remove_community(audience_id, subreddit_name)
+        if removed:
+            self.trigger_topics.execute(audience_id)
+        return removed
