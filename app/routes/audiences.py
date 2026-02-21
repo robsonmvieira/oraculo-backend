@@ -5,8 +5,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.modules.identity.dependencies import get_current_user
-from app.modules.identity.domain.entities.user import User
 from app.modules.audiences.application.use_cases.get_audience_card_use_case import (
     GetAudienceCardUseCase,
     ListAudienceCardsUseCase,
@@ -23,6 +21,8 @@ from app.modules.audiences.application.use_cases.manage_audience_use_case import
 from app.modules.audiences.infra.repositories.audience_repository import (
     AudienceRepository,
 )
+from app.modules.identity.dependencies import get_current_user
+from app.modules.identity.domain.entities.user import User
 from app.modules.shared.infra.database.database import get_db
 
 router = APIRouter(prefix="/audiences", tags=["Audiences"])
@@ -54,9 +54,7 @@ def _check_ownership(audience, current_user: User) -> None:
 
 
 @router.get("")
-def list_audiences(
-    current_user: User = Depends(get_current_user), db=Depends(get_db)
-):
+def list_audiences(current_user: User = Depends(get_current_user), db=Depends(get_db)):
     """
     Lista audiências do usuário autenticado.
     Superuser vê todas.

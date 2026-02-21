@@ -21,6 +21,6 @@ wheels/
 .claude
 .env
 .devcontainer/
-app.rest
+*.rest
 *.pdf
 docs/*.md

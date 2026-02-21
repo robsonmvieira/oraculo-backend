@@ -10,9 +10,6 @@ from app.modules.identity.domain.entities.user import User
 from app.modules.audience_templates.infra.repositories.audience_template_repository import (
     AudienceTemplateRepository,
 )
-from app.modules.audiences.infra.repositories.audience_repository import (
-    AudienceRepository,
-)
 from app.modules.similar_communities.application.services.similar_communities_service import (
     SimilarCommunitiesService,
 )
@@ -95,68 +92,41 @@ def get_similar_communities(
 def get_audience_suggestions(
     audience_id: UUID,
     limit: int = Query(default=10, ge=1, le=50),
-    min_similarity: float = Query(default=0.5, ge=0.0, le=1.0),
     current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
-    Get community suggestions for an audience.
+    Get community suggestions for expanding an audience.
 
-    Finds communities similar to the aggregate of all communities in the audience.
-    Excludes communities already in the audience and those marked as not relevant.
+    Uses a LangGraph agent that:
+    1. Analyzes the audience theme from all communities
+    2. Discovers candidates from embeddings, related_subs, and term search
+    3. Filters already-in-audience and not_relevant communities
+    4. Ranks by relevance with LLM-generated justifications
 
-    Args:
-        audience_id: The audience UUID
-        limit: Maximum number of suggestions (1-50)
-        min_similarity: Minimum similarity score (0-1)
-
-    Returns:
-        List of suggested communities with similarity scores
+    Each suggestion includes size_tag, activity_tag, growth_week, and relevance_reason.
     """
-    # Get audience communities
-    audience_repo = AudienceRepository(db)
-    audience = audience_repo.find_by_id(audience_id)
-
-    if not audience:
-        raise HTTPException(status_code=404, detail="Audience not found")
-
-    communities = audience_repo.get_communities(audience_id)
-    community_names = [c.subreddit_name for c in communities]
-
-    if not community_names:
-        return {
-            "audience_id": str(audience_id),
-            "audience_name": audience.name,
-            "suggestions": [],
-            "total_found": 0,
-            "message": "No communities in audience to find similar",
-        }
-
-    service = SimilarCommunitiesService(db)
-    result = service.find_similar_to_audience(
-        community_names=community_names,
-        user_id=str(current_user.id),
-        limit=limit,
-        min_similarity=min_similarity,
+    from app.modules.audiences.application.use_cases.expand_audience_use_case.expand_audience_use_case import (
+        ExpandAudienceUseCase,
     )
 
+    use_case = ExpandAudienceUseCase(db)
+    result = use_case.execute(
+        audience_id=audience_id,
+        user_id=str(current_user.id),
+        limit=limit,
+    )
+
+    if not result.audience_name:
+        raise HTTPException(status_code=404, detail="Audience not found")
+
     return {
-        "audience_id": str(audience_id),
-        "audience_name": audience.name,
-        "source_communities": community_names,
-        "suggestions": [
-            {
-                "name": s.name,
-                "title": s.title,
-                "description": s.description,
-                "subscribers": s.subscribers,
-                "similarity_score": round(s.similarity_score, 4),
-                "reason": s.reason,
-            }
-            for s in result.suggestions
-        ],
+        "audience_id": result.audience_id,
+        "audience_name": result.audience_name,
+        "audience_theme": result.audience_theme,
+        "suggestions": result.suggestions,
         "total_found": result.total_found,
-        "filtered_by_feedback": result.filtered_count,
+        "filtered_by_feedback": result.filtered_by_feedback,
     }
 
 

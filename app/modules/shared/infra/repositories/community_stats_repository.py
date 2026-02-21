@@ -3,6 +3,10 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.modules.shared.domain.entities.community_stats import CommunityStats
+from app.modules.shared.domain.value_objects.community_classification import (
+    classify_activity,
+    classify_size,
+)
 
 
 class CommunityStatsRepository:
@@ -59,15 +63,7 @@ class CommunityStatsRepository:
     ) -> CommunityStats:
         """
         Insere ou atualiza estatísticas de uma comunidade.
-
-        Args:
-            subreddit_name: Nome do subreddit
-            title: Título da comunidade
-            description: Descrição
-            subscribers: Número de inscritos
-            icon_url: URL do ícone
-            growth_week: Crescimento semanal em %
-            growth_month: Crescimento mensal em %
+        Recalcula size_tag e activity_tag automaticamente.
 
         Returns:
             CommunityStats atualizado/criado
@@ -75,20 +71,17 @@ class CommunityStatsRepository:
         existing = self.find_by_name(subreddit_name)
 
         if existing:
-            if title is not None:
-                existing.title = title
-            if description is not None:
-                existing.description = description
-            if subscribers is not None:
-                existing.subscribers = subscribers
-            if icon_url is not None:
-                existing.icon_url = icon_url
-            if growth_week is not None:
-                existing.growth_week = growth_week
-            if growth_month is not None:
-                existing.growth_month = growth_month
-            if category is not None:
-                existing.category = category
+            self._apply_fields(existing, {
+                "title": title,
+                "description": description,
+                "subscribers": subscribers,
+                "icon_url": icon_url,
+                "growth_week": growth_week,
+                "growth_month": growth_month,
+                "category": category,
+            })
+            existing.size_tag = classify_size(existing.subscribers)
+            existing.activity_tag = classify_activity(existing.growth_week)
             existing.updated_at = datetime.now(timezone.utc)
             self.db.commit()
             self.db.refresh(existing)
@@ -103,11 +96,20 @@ class CommunityStatsRepository:
             growth_week=growth_week,
             growth_month=growth_month,
             category=category,
+            size_tag=classify_size(subscribers),
+            activity_tag=classify_activity(growth_week),
         )
         self.db.add(stats)
         self.db.commit()
         self.db.refresh(stats)
         return stats
+
+    @staticmethod
+    def _apply_fields(entity: CommunityStats, fields: dict) -> None:
+        """Apply non-None field values to an existing entity."""
+        for key, value in fields.items():
+            if value is not None:
+                setattr(entity, key, value)
 
     def find_all(self, limit: int = 100) -> list[CommunityStats]:
         """

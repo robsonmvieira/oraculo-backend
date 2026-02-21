@@ -24,6 +24,8 @@ class CommunityStats(Base):
     growth_week = Column(Float, nullable=True)  # Ex: 0.85 = 0.85%
     growth_month = Column(Float, nullable=True)
     category = Column(String(50), nullable=True, index=True)
+    size_tag = Column(String(20), nullable=True)
+    activity_tag = Column(String(20), nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
