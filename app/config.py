@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
 
     # AI models
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-5-nano-2025-08-07"
     model_translate: str = "gpt-4o-transcribe"
 
     # AWS/S3 settings
