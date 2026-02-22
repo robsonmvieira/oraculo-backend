@@ -1,7 +1,7 @@
 """add llm_cache table
 
 Revision ID: fcbe8b1dfbfa
-Revises: 3fb8397ac603
+Revises:
 Create Date: 2026-02-17 18:15:25.628135
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'fcbe8b1dfbfa'
-down_revision: Union[str, Sequence[str], None] = '3fb8397ac603'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
