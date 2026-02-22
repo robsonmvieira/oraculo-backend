@@ -27,15 +27,6 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 # Importar o Base e todos os models
-from app.models.base import Base as LegacyBase  # noqa: E402
-from app.models import (  # noqa: E402
-    item_proposta,
-    lead,
-    nota_lead,
-    proposta,
-    status_lead,
-    tarefa_lead,
-)
 from app.modules.shared.infra.database.orm.metadata import Base  # noqa: E402
 from app.modules.identity.domain.entities import user  # noqa: E402
 from app.modules.audiences.domain.entities import audience  # noqa: E402
@@ -48,7 +39,7 @@ from app.modules.audience_templates.domain.entities import audience_template  # 
 from app.modules.audience_topics.domain.entities import audience_topic  # noqa: E402
 from app.modules.audience_keywords.domain.entities import audience_keyword  # noqa: E402
 
-target_metadata = [LegacyBase.metadata, Base.metadata]
+target_metadata = [Base.metadata]
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
