@@ -7,4 +7,5 @@ class CommunityAnalyzerState(TypedDict):
 
     title: str  # Título da comunidade
     public_description: str  # Descrição pública
+    language: str  # Idioma preferido do usuário
     derived_terms: list[str]  # Termos derivados gerados pelo LLM

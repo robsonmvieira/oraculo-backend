@@ -37,13 +37,14 @@ class ExtractKeywordsUseCase:
         self.topic_repo = AudienceTopicRepository(db)
         self.reddit_provider = GenericRedditProvider()
 
-    def execute(self, audience_id: UUID, analysis_id: UUID) -> bool:
+    def execute(self, audience_id: UUID, analysis_id: UUID, language: str = "en") -> bool:
         """
         Executa a extração completa de keywords.
 
         Args:
             audience_id: ID da audiência
             analysis_id: ID da análise já criada (status: processing)
+            language: Idioma preferido do usuário
 
         Returns:
             True se concluiu com sucesso
@@ -81,6 +82,7 @@ class ExtractKeywordsUseCase:
                 "community_names": community_names,
                 "community_descriptions": community_descriptions,
                 "topics_summary": topics_summary,
+                "language": language,
                 "extracted_keywords": [],
             })
 

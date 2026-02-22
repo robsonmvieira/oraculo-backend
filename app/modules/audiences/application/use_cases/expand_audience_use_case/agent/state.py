@@ -36,6 +36,7 @@ class AudienceExpansionState(TypedDict):
     excluded_names: list[str]
     user_id: str
     limit: int
+    language: str
 
     # Populated by nodes
     audience_theme: str

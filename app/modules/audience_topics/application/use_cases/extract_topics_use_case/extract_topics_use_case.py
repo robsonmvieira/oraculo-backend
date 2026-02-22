@@ -36,13 +36,14 @@ class ExtractTopicsUseCase:
         self.topic_repo = AudienceTopicRepository(db)
         self.reddit_provider = GenericRedditProvider()
 
-    def execute(self, audience_id: UUID, analysis_id: UUID) -> bool:
+    def execute(self, audience_id: UUID, analysis_id: UUID, language: str = "en") -> bool:
         """
         Executa a extração completa de tópicos.
 
         Args:
             audience_id: ID da audiência
             analysis_id: ID da análise já criada (status: processing)
+            language: Idioma preferido do usuário
 
         Returns:
             True se concluiu com sucesso
@@ -104,6 +105,7 @@ class ExtractTopicsUseCase:
                 "community_names": community_names,
                 "posts": posts,
                 "total_posts": len(posts),
+                "language": language,
                 "extracted_topics": [],
             })
 

@@ -32,6 +32,7 @@ class BehavioralPatternState(TypedDict):
     topic_description: str
     audience_name: str
     community_names: list[str]
+    language: str
 
     # Populated by nodes
     relevant_posts: list[PostWithComments]

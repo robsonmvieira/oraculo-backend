@@ -39,6 +39,7 @@ class PatternDetectionState(TypedDict):
     audience_name: str
     community_names: list[str]
     topics: list[TopicSummary]
+    language: str
 
     # Populated by nodes
     posts_with_comments: list[PostWithComments]

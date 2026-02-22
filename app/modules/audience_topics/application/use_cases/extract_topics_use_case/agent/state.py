@@ -28,6 +28,7 @@ class TopicExtractionState(TypedDict):
     community_names: list[str]
     posts: list[PostData]
     total_posts: int
+    language: str
 
     # Populated by nodes
     extracted_topics: list[ExtractedTopic]

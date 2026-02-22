@@ -1,3 +1,6 @@
+from app.modules.shared.application.helpers.language_directive import get_language_directive
+
+
 def pattern_detection_prompt(
     audience_name: str,
     community_names: list[str],
@@ -6,10 +9,11 @@ def pattern_detection_prompt(
     total_topics: int,
     total_posts: int,
     total_comments: int,
+    language: str = "en",
 ) -> str:
     communities_str = ", ".join(f"r/{name}" for name in community_names)
 
-    return f"""You are an expert Reddit analyst specializing in cross-topic pattern detection.
+    prompt = f"""You are an expert Reddit analyst specializing in cross-topic pattern detection.
 
 Audience: "{audience_name}"
 Communities: {communities_str}
@@ -73,3 +77,5 @@ Respond ONLY with valid JSON. No markdown code blocks, no explanations outside t
 
 Example structure:
 {{"summary": "...", "co_occurrences": [...], "unanswered_questions": [...], "emerging_opinions": [...], "cross_community_gaps": [...], "content_opportunities": [...]}}"""
+
+    return prompt + get_language_directive(language)

@@ -31,7 +31,7 @@ class TriggerDeepDiveUseCase:
         self.topic_repo = AudienceTopicRepository(db)
         self.deep_dive_repo = TopicDeepDiveRepository(db)
 
-    def execute(self, topic_id: UUID, audience_id: UUID, force: bool = False) -> dict:
+    def execute(self, topic_id: UUID, audience_id: UUID, force: bool = False, language: str = "en") -> dict:
         """
         Verifica e dispara deep dive se necessário.
 
@@ -81,7 +81,7 @@ class TriggerDeepDiveUseCase:
         )
 
         # Disparar em background
-        self._run_in_background(topic_id, audience_id, analysis.id)
+        self._run_in_background(topic_id, audience_id, analysis.id, language)
 
         return {
             "status": "processing",
@@ -90,7 +90,7 @@ class TriggerDeepDiveUseCase:
         }
 
     def _run_in_background(
-        self, topic_id: UUID, audience_id: UUID, analysis_id: UUID
+        self, topic_id: UUID, audience_id: UUID, analysis_id: UUID, language: str = "en",
     ) -> None:
         """Dispara extração de deep dive em background thread."""
         from app.modules.shared.infra.database.database import SessionLocal
@@ -103,7 +103,7 @@ class TriggerDeepDiveUseCase:
                 )
 
                 use_case = ExtractDeepDiveUseCase(db)
-                use_case.execute(topic_id, audience_id, analysis_id)
+                use_case.execute(topic_id, audience_id, analysis_id, language=language)
             except Exception:
                 logger.exception(
                     "Background deep dive failed for topic %s", topic_id

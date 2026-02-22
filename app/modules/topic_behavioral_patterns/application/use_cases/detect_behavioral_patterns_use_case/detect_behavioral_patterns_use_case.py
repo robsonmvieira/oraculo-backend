@@ -43,7 +43,7 @@ class DetectBehavioralPatternsUseCase:
         self.pattern_repo = TopicBehavioralPatternRepository(db)
         self.reddit_provider = GenericRedditProvider()
 
-    def execute(self, topic_id: UUID, audience_id: UUID, analysis_id: UUID) -> bool:
+    def execute(self, topic_id: UUID, audience_id: UUID, analysis_id: UUID, language: str = "en") -> bool:
         """
         Executa a detecção de padrões comportamentais completa.
 
@@ -51,6 +51,7 @@ class DetectBehavioralPatternsUseCase:
             topic_id: ID do tópico
             audience_id: ID da audiência
             analysis_id: ID da análise já criada (status: processing)
+            language: Idioma preferido do usuário
 
         Returns:
             True se concluiu com sucesso
@@ -167,6 +168,7 @@ class DetectBehavioralPatternsUseCase:
                 "topic_description": topic.description or "",
                 "audience_name": audience.name,
                 "community_names": community_names,
+                "language": language,
                 "relevant_posts": posts_with_comments,
                 "pattern_result": None,
             })

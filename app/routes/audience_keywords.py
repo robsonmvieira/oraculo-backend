@@ -149,7 +149,7 @@ def refresh_audience_keywords(
     analysis = keyword_repo.create_analysis(audience_id, fingerprint)
 
     trigger = TriggerKeywordAnalysisUseCase(db)
-    trigger._run_in_background(audience_id, analysis.id)
+    trigger._run_in_background(audience_id, analysis.id, language=current_user.preferred_language)
 
     return {
         "status": "processing",

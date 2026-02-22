@@ -114,6 +114,7 @@ def analyze_deep_dive(state: DeepDiveState) -> dict:
         posts_with_comments_text=posts_text,
         total_posts=len(posts),
         total_comments=total_comments,
+        language=state.get("language", "en"),
     )
 
     response = llm.invoke(prompt)
@@ -152,6 +153,7 @@ def extract_representative_posts(state: DeepDiveState) -> dict:
     prompt = select_representative_posts_prompt(
         topic_name=state["topic_name"],
         posts_text=posts_text,
+        language=state.get("language", "en"),
     )
 
     response = llm.invoke(prompt)

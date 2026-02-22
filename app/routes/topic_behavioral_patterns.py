@@ -149,6 +149,6 @@ def refresh_topic_behavioral_patterns(
         }
 
     trigger = TriggerBehavioralPatternUseCase(db)
-    result = trigger.execute(topic_id, audience_id, force=True)
+    result = trigger.execute(topic_id, audience_id, force=True, language=current_user.preferred_language)
 
     return result

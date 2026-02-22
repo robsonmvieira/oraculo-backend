@@ -20,6 +20,7 @@ class User(Base):
     full_name = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
+    preferred_language = Column(String(10), default="en", nullable=False, server_default="en")
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

@@ -152,6 +152,6 @@ def refresh_topic_deep_dive(
         }
 
     trigger = TriggerDeepDiveUseCase(db)
-    result = trigger.execute(topic_id, audience_id, force=True)
+    result = trigger.execute(topic_id, audience_id, force=True, language=current_user.preferred_language)
 
     return result

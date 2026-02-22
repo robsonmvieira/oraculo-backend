@@ -1,14 +1,18 @@
+from app.modules.shared.application.helpers.language_directive import get_language_directive
+
+
 def extract_topics_prompt(
     audience_name: str,
     audience_description: str | None,
     community_names: list[str],
     posts_text: str,
     total_posts: int,
+    language: str = "en",
 ) -> str:
     communities_str = ", ".join(f"r/{name}" for name in community_names)
     desc_line = f"\nAudience description: {audience_description}" if audience_description else ""
 
-    return f"""You are an expert Reddit analyst specializing in trend detection and topic extraction.
+    prompt = f"""You are an expert Reddit analyst specializing in trend detection and topic extraction.
 
 Audience: "{audience_name}"{desc_line}
 Communities: {communities_str}
@@ -45,12 +49,15 @@ Health issues|Physical or mental conditions affecting pets that require attentio
 
 Do NOT include any other text, headers, or numbering. Just the pipe-delimited lines."""
 
+    return prompt + get_language_directive(language)
+
 
 def estimate_growth_prompt(
     topics_text: str,
     audience_name: str,
+    language: str = "en",
 ) -> str:
-    return f"""You are an expert in Reddit trend analysis.
+    prompt = f"""You are an expert in Reddit trend analysis.
 
 Audience: "{audience_name}"
 
@@ -82,3 +89,5 @@ Health issues|400
 Training tips|150
 
 Do NOT include any other text. Just the pipe-delimited lines."""
+
+    return prompt + get_language_directive(language)
