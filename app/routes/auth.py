@@ -1,17 +1,22 @@
 """Routes for authentication."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.modules.identity.application.dtos import RegisterInput, LoginInput
+from app.modules.identity.application.dtos import RegisterInput, LoginInput, UpdateProfileInput
 from app.modules.identity.application.use_cases.login_use_case import LoginUseCase
 from app.modules.identity.application.use_cases.refresh_token_use_case import (
     RefreshTokenUseCase,
 )
 from app.modules.identity.application.use_cases.register_use_case import (
     RegisterUseCase,
+)
+from app.modules.identity.application.use_cases.update_profile_use_case import (
+    UpdateProfileUseCase,
 )
 from app.modules.identity.dependencies import get_current_user
 from app.modules.identity.domain.entities.user import User
@@ -86,7 +91,35 @@ def me(current_user: User = Depends(get_current_user)):
         "is_active": current_user.is_active,
         "is_superuser": current_user.is_superuser,
         "preferred_language": current_user.preferred_language,
+        "bio": current_user.bio,
+        "locale": current_user.locale,
+        "phone_number": current_user.phone_number,
     }
+
+
+class UpdateProfileRequest(BaseModel):
+    bio: Optional[str] = None
+    locale: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
+@router.patch("/me/profile")
+def update_profile(
+    request: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Atualiza o perfil do usuário (bio, locale, phone_number)."""
+    use_case = UpdateProfileUseCase(db)
+    updated = use_case.execute(
+        current_user,
+        UpdateProfileInput(
+            bio=request.bio,
+            locale=request.locale,
+            phone_number=request.phone_number,
+        ),
+    )
+    return vars(updated)
 
 
 class UpdateLanguageRequest(BaseModel):

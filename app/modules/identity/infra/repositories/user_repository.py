@@ -33,3 +33,11 @@ class UserRepository:
             .filter(User.email == email.lower().strip())
             .first()
         )
+
+    def update_profile(self, user: User, **fields) -> User:
+        for key, value in fields.items():
+            if value is not None:
+                setattr(user, key, value)
+        self.db.commit()
+        self.db.refresh(user)
+        return user

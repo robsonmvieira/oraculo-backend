@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, String
+from sqlalchemy import Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.modules.shared.infra.database.orm.metadata import Base
@@ -21,6 +21,9 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     preferred_language = Column(String(10), default="en", nullable=False, server_default="en")
+    bio = Column(Text, nullable=True)
+    locale = Column(String(100), nullable=True)
+    phone_number = Column(String(20), nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

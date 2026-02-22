@@ -1,6 +1,7 @@
 """DTOs for identity module."""
 
 from dataclasses import dataclass
+from typing import Optional
 from uuid import UUID
 
 
@@ -30,6 +31,18 @@ class UserDTO:
     full_name: str
     is_active: bool
     is_superuser: bool
+    bio: Optional[str] = None
+    locale: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
+@dataclass
+class UpdateProfileInput:
+    """Input para atualização de perfil."""
+
+    bio: Optional[str] = None
+    locale: Optional[str] = None
+    phone_number: Optional[str] = None
 
 
 @dataclass
