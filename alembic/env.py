@@ -39,6 +39,7 @@ from app.modules.audience_templates.domain.entities import audience_template  # 
 from app.modules.audience_topics.domain.entities import audience_topic  # noqa: E402
 from app.modules.audience_keywords.domain.entities import audience_keyword  # noqa: E402
 from app.modules.topic_deep_dive.domain.entities import topic_deep_dive  # noqa: E402
+from app.modules.topic_patterns.domain.entities import topic_pattern  # noqa: E402
 
 target_metadata = [Base.metadata]
 
