@@ -31,7 +31,7 @@ class TriggerBehavioralPatternUseCase:
         self.topic_repo = AudienceTopicRepository(db)
         self.pattern_repo = TopicBehavioralPatternRepository(db)
 
-    def execute(self, topic_id: UUID, audience_id: UUID, force: bool = False) -> dict:
+    def execute(self, topic_id: UUID, audience_id: UUID, force: bool = False, language: str = "en") -> dict:
         """
         Verifica e dispara análise de padrões comportamentais se necessário.
 
@@ -77,7 +77,7 @@ class TriggerBehavioralPatternUseCase:
             analysis.id,
         )
 
-        self._run_in_background(topic_id, audience_id, analysis.id)
+        self._run_in_background(topic_id, audience_id, analysis.id, language)
 
         return {
             "status": "processing",
@@ -86,7 +86,7 @@ class TriggerBehavioralPatternUseCase:
         }
 
     def _run_in_background(
-        self, topic_id: UUID, audience_id: UUID, analysis_id: UUID
+        self, topic_id: UUID, audience_id: UUID, analysis_id: UUID, language: str = "en",
     ) -> None:
         """Dispara detecção de padrões comportamentais em background thread."""
         from app.modules.shared.infra.database.database import SessionLocal
@@ -99,7 +99,7 @@ class TriggerBehavioralPatternUseCase:
                 )
 
                 use_case = DetectBehavioralPatternsUseCase(db)
-                use_case.execute(topic_id, audience_id, analysis_id)
+                use_case.execute(topic_id, audience_id, analysis_id, language=language)
             except Exception:
                 logger.exception(
                     "Background behavioral pattern analysis failed for topic %s", topic_id

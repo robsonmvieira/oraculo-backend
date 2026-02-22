@@ -37,6 +37,7 @@ def extract_keywords(state: KeywordExtractionState) -> dict:
         community_names=state["community_names"],
         community_descriptions=state.get("community_descriptions", []),
         topics_summary=state.get("topics_summary"),
+        language=state.get("language", "en"),
     )
 
     response = llm.invoke(prompt)

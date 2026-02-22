@@ -1,3 +1,6 @@
+from app.modules.shared.application.helpers.language_directive import get_language_directive
+
+
 def deep_dive_analysis_prompt(
     topic_name: str,
     topic_description: str,
@@ -6,10 +9,11 @@ def deep_dive_analysis_prompt(
     posts_with_comments_text: str,
     total_posts: int,
     total_comments: int,
+    language: str = "en",
 ) -> str:
     communities_str = ", ".join(f"r/{name}" for name in community_names)
 
-    return f"""You are an expert Reddit analyst performing a deep dive analysis on a specific topic.
+    prompt = f"""You are an expert Reddit analyst performing a deep dive analysis on a specific topic.
 
 Audience: "{audience_name}"
 Communities: {communities_str}
@@ -73,12 +77,15 @@ Respond ONLY with valid JSON. No markdown code blocks, no explanations outside t
 Example structure:
 {{"summary": "...", "subtopics": [...], "common_questions": [...], "sentiment": {{...}}, "mentioned_products": [...], "actionable_insights": [...]}}"""
 
+    return prompt + get_language_directive(language)
+
 
 def select_representative_posts_prompt(
     topic_name: str,
     posts_text: str,
+    language: str = "en",
 ) -> str:
-    return f"""You are selecting the most representative posts for the topic "{topic_name}".
+    prompt = f"""You are selecting the most representative posts for the topic "{topic_name}".
 
 Below are posts related to this topic:
 
@@ -103,3 +110,5 @@ Respond ONLY with a valid JSON array. No markdown code blocks.
 
 Example:
 [{{"title": "...", "subreddit": "...", "score": 123, "permalink": "/r/sub/comments/...", "excerpt": "..."}}]"""
+
+    return prompt + get_language_directive(language)

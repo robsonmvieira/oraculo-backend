@@ -15,6 +15,7 @@ from app.modules.identity.application.use_cases.register_use_case import (
 )
 from app.modules.identity.dependencies import get_current_user
 from app.modules.identity.domain.entities.user import User
+from app.modules.shared.application.helpers.language_directive import SUPPORTED_LANGUAGES
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -84,4 +85,26 @@ def me(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "is_active": current_user.is_active,
         "is_superuser": current_user.is_superuser,
+        "preferred_language": current_user.preferred_language,
     }
+
+
+class UpdateLanguageRequest(BaseModel):
+    preferred_language: str
+
+
+@router.patch("/me/language")
+def update_language(
+    request: UpdateLanguageRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Atualiza o idioma preferido do usuário."""
+    if request.preferred_language not in SUPPORTED_LANGUAGES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Idioma não suportado. Opções: {', '.join(SUPPORTED_LANGUAGES.keys())}",
+        )
+    current_user.preferred_language = request.preferred_language
+    db.commit()
+    return {"preferred_language": current_user.preferred_language}

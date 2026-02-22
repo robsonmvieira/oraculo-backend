@@ -64,6 +64,7 @@ class ExpandAudienceUseCase:
         audience_id: UUID,
         user_id: str,
         limit: int = 10,
+        language: str = "en",
     ) -> AudienceExpansionResult:
         audience = self.audience_repo.find_by_id(audience_id)
         if not audience:
@@ -148,6 +149,7 @@ class ExpandAudienceUseCase:
             "excluded_names": excluded_names,
             "user_id": user_id,
             "limit": limit,
+            "language": language,
             "audience_theme": "",
             "candidates": candidates,
             "suggestions": [],

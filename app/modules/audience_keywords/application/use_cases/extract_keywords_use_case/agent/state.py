@@ -14,6 +14,7 @@ class KeywordExtractionState(TypedDict):
     community_names: list[str]
     community_descriptions: list[str]
     topics_summary: str | None
+    language: str
 
     # Populated by nodes
     extracted_keywords: list[ExtractedKeyword]

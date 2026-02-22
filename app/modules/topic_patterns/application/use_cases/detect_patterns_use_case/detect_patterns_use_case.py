@@ -45,7 +45,7 @@ class DetectPatternsUseCase:
         self.pattern_repo = TopicPatternRepository(db)
         self.reddit_provider = GenericRedditProvider()
 
-    def execute(self, audience_id: UUID, analysis_id: UUID) -> bool:
+    def execute(self, audience_id: UUID, analysis_id: UUID, language: str = "en") -> bool:
         """
         Executa a deteccao de padroes completa.
 
@@ -177,6 +177,7 @@ class DetectPatternsUseCase:
                 "audience_name": audience.name,
                 "community_names": community_names,
                 "topics": topics,
+                "language": language,
                 "posts_with_comments": posts_with_comments,
                 "pattern_result": None,
             })

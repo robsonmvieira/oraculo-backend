@@ -115,6 +115,7 @@ def get_audience_suggestions(
         audience_id=audience_id,
         user_id=str(current_user.id),
         limit=limit,
+        language=current_user.preferred_language,
     )
 
     if not result.audience_name:

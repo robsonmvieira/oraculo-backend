@@ -27,7 +27,7 @@ class TriggerTopicAnalysisUseCase:
         self.audience_repo = AudienceRepository(db)
         self.topic_repo = AudienceTopicRepository(db)
 
-    def execute(self, audience_id: UUID) -> None:
+    def execute(self, audience_id: UUID, language: str = "en") -> None:
         """
         Verifica e dispara análise se necessário.
         Não bloqueia — retorna imediatamente.
@@ -61,9 +61,9 @@ class TriggerTopicAnalysisUseCase:
         )
 
         # Disparar em background
-        self._run_in_background(audience_id, analysis.id)
+        self._run_in_background(audience_id, analysis.id, language)
 
-    def _run_in_background(self, audience_id: UUID, analysis_id: UUID) -> None:
+    def _run_in_background(self, audience_id: UUID, analysis_id: UUID, language: str = "en") -> None:
         """Dispara extração de tópicos em background thread."""
         from app.modules.shared.infra.database.database import SessionLocal
 
@@ -75,7 +75,7 @@ class TriggerTopicAnalysisUseCase:
                 )
 
                 use_case = ExtractTopicsUseCase(db)
-                use_case.execute(audience_id, analysis_id)
+                use_case.execute(audience_id, analysis_id, language=language)
             except Exception:
                 logger.exception(
                     "Background topic extraction failed for audience %s", audience_id

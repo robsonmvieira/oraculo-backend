@@ -1,9 +1,13 @@
+from app.modules.shared.application.helpers.language_directive import get_language_directive
+
+
 def extract_keywords_prompt(
     audience_name: str,
     audience_description: str | None,
     community_names: list[str],
     community_descriptions: list[str],
     topics_summary: str | None,
+    language: str = "en",
 ) -> str:
     communities_str = ", ".join(f"r/{name}" for name in community_names)
     desc_line = f"\nAudience description: {audience_description}" if audience_description else ""
@@ -21,7 +25,7 @@ def extract_keywords_prompt(
     if topics_summary:
         topics_block = f"\n\nTrending topics already identified in this audience:\n{topics_summary}"
 
-    return f"""You are an expert Reddit analyst specializing in audience research and keyword discovery.
+    prompt = f"""You are an expert Reddit analyst specializing in audience research and keyword discovery.
 
 Audience: "{audience_name}"{desc_line}
 Communities: {communities_str}{descriptions_block}{topics_block}
@@ -63,3 +67,5 @@ IMPORTANT:
 - Include a mix of short phrases (2-3 words) and longer search queries (4-6 words)
 - Focus on terms that reveal user intent (buying, learning, solving, comparing)
 - Do NOT include any other text, headers, or numbering. Just the pipe-delimited lines."""
+
+    return prompt + get_language_directive(language)

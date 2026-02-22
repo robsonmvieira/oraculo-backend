@@ -21,7 +21,7 @@ MAX_COMMENT_LENGTH = 600
 
 def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        model=os.getenv("BEHAVIORAL_PATTERN_MODEL_NAME", "gpt-4"),
+        model=os.getenv("BEHAVIORAL_PATTERN_MODEL_NAME", "gpt-4o"),
         temperature=0,
     )
 
@@ -89,6 +89,7 @@ def detect_behavioral_patterns(state: BehavioralPatternState) -> dict:
         posts_with_comments_text=posts_text,
         total_posts=len(posts),
         total_comments=total_comments,
+        language=state.get("language", "en"),
     )
 
     response = llm.invoke(prompt)

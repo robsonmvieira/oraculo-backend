@@ -1,10 +1,13 @@
-def analyze_audience_theme_prompt(communities: list[dict]) -> str:
+from app.modules.shared.application.helpers.language_directive import get_language_directive
+
+
+def analyze_audience_theme_prompt(communities: list[dict], language: str = "en") -> str:
     community_list = "\n".join(
         f"- r/{c['name']}: {c.get('title', 'N/A')} — {c.get('description', 'N/A')}"
         for c in communities
     )
 
-    return f"""You are an expert in Reddit communities and audience analysis.
+    prompt = f"""You are an expert in Reddit communities and audience analysis.
 
 Analyze this audience composed of the following communities:
 {community_list}
@@ -17,9 +20,11 @@ Respond in this exact format (no extra text):
 THEME: <one sentence describing the audience theme>
 TERMS: <5 search terms separated by comma>"""
 
+    return prompt + get_language_directive(language)
+
 
 def rank_and_explain_prompt(
-    audience_theme: str, candidates: list[dict]
+    audience_theme: str, candidates: list[dict], language: str = "en",
 ) -> str:
     candidate_list = "\n".join(
         f"- r/{c['name']} ({c.get('subscribers', 'N/A')} subscribers): "
@@ -27,7 +32,7 @@ def rank_and_explain_prompt(
         for c in candidates
     )
 
-    return f"""You are an expert in Reddit communities.
+    prompt = f"""You are an expert in Reddit communities.
 
 Audience theme: {audience_theme}
 
@@ -41,3 +46,5 @@ Respond with one line per community in this exact format (no extra text):
 r/<name>|<score>|<reason>
 
 Order from most to least relevant. Only include communities with score >= 0.3."""
+
+    return prompt + get_language_directive(language)

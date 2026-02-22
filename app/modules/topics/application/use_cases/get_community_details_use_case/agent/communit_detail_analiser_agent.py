@@ -20,7 +20,7 @@ def analyze_community(state: CommunityAnalyzerState) -> dict:
         temperature=0,
     )
 
-    prompt = analyze_community_node_prompt(state["title"], state["public_description"])
+    prompt = analyze_community_node_prompt(state["title"], state["public_description"], language=state.get("language", "en"))
 
     response = llm.invoke(prompt)
 
@@ -45,7 +45,7 @@ def create_community_analyzer_agent():
 
 
 def analyze_community_for_related_terms(
-    title: str, public_description: str
+    title: str, public_description: str, language: str = "en",
 ) -> list[str]:
     """
     Executa o agente e retorna os termos derivados
@@ -53,6 +53,7 @@ def analyze_community_for_related_terms(
     Args:
         title: Título da comunidade
         public_description: Descrição pública da comunidade
+        language: Idioma preferido do usuário
 
     Returns:
         Lista de termos derivados para buscar comunidades relacionadas
@@ -63,6 +64,7 @@ def analyze_community_for_related_terms(
         {
             "title": title,
             "public_description": public_description,
+            "language": language,
             "derived_terms": [],
         }
     )

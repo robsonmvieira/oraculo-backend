@@ -1,3 +1,6 @@
+from app.modules.shared.application.helpers.language_directive import get_language_directive
+
+
 def behavioral_pattern_detection_prompt(
     topic_name: str,
     topic_description: str,
@@ -6,10 +9,11 @@ def behavioral_pattern_detection_prompt(
     posts_with_comments_text: str,
     total_posts: int,
     total_comments: int,
+    language: str = "en",
 ) -> str:
     communities_str = ", ".join(f"r/{name}" for name in community_names)
 
-    return f"""You are an expert behavioral analyst specializing in detecting behavioral patterns from online community discussions.
+    prompt = f"""You are an expert behavioral analyst specializing in detecting behavioral patterns from online community discussions.
 
 Audience: "{audience_name}"
 Communities: {communities_str}
@@ -85,3 +89,5 @@ Respond ONLY with valid JSON. No markdown code blocks, no explanations outside t
 
 Example structure:
 {{"summary": "...", "tool_patterns": [...], "workaround_patterns": [...], "friction_patterns": [...], "shift_patterns": [...], "demand_signals": [...]}}"""
+
+    return prompt + get_language_directive(language)

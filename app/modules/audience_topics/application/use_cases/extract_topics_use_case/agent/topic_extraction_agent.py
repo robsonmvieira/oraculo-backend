@@ -70,6 +70,7 @@ def extract_topics(state: TopicExtractionState) -> dict:
         community_names=state["community_names"],
         posts_text=posts_text,
         total_posts=state["total_posts"],
+        language=state.get("language", "en"),
     )
 
     response = llm.invoke(prompt)
@@ -156,7 +157,7 @@ def estimate_growth(state: TopicExtractionState) -> dict:
     topics_text = "\n".join(topics_lines)
 
     llm = _get_llm()
-    prompt = estimate_growth_prompt(topics_text, state["audience_name"])
+    prompt = estimate_growth_prompt(topics_text, state["audience_name"], language=state.get("language", "en"))
     response = llm.invoke(prompt)
 
     # Parse growth results

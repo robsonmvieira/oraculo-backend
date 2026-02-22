@@ -44,7 +44,7 @@ class ExtractDeepDiveUseCase:
         self.deep_dive_repo = TopicDeepDiveRepository(db)
         self.reddit_provider = GenericRedditProvider()
 
-    def execute(self, topic_id: UUID, audience_id: UUID, analysis_id: UUID) -> bool:
+    def execute(self, topic_id: UUID, audience_id: UUID, analysis_id: UUID, language: str = "en") -> bool:
         """
         Executa a análise de deep dive completa.
 
@@ -52,6 +52,7 @@ class ExtractDeepDiveUseCase:
             topic_id: ID do tópico
             audience_id: ID da audiência
             analysis_id: ID da análise já criada (status: processing)
+            language: Idioma preferido do usuário
 
         Returns:
             True se concluiu com sucesso
@@ -172,6 +173,7 @@ class ExtractDeepDiveUseCase:
                 "topic_description": topic.description or "",
                 "audience_name": audience.name,
                 "community_names": community_names,
+                "language": language,
                 "relevant_posts": posts_with_comments,
                 "deep_dive_result": None,
             })

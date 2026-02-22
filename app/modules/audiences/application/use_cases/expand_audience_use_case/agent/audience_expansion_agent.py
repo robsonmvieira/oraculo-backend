@@ -33,7 +33,7 @@ def analyze_audience_theme(state: AudienceExpansionState) -> dict:
         return {"audience_theme": "General"}
 
     llm = _get_llm()
-    prompt = analyze_audience_theme_prompt(communities)
+    prompt = analyze_audience_theme_prompt(communities, language=state.get("language", "en"))
     response = llm.invoke(prompt)
 
     theme = "General"
@@ -90,7 +90,7 @@ def rank_and_explain(state: AudienceExpansionState) -> dict:
         return {"suggestions": []}
 
     llm = _get_llm()
-    prompt = rank_and_explain_prompt(state["audience_theme"], real_candidates)
+    prompt = rank_and_explain_prompt(state["audience_theme"], real_candidates, language=state.get("language", "en"))
     response = llm.invoke(prompt)
 
     # Build a lookup map from candidates

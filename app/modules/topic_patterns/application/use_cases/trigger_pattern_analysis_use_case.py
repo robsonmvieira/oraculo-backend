@@ -27,7 +27,7 @@ class TriggerPatternAnalysisUseCase:
         self.audience_repo = AudienceRepository(db)
         self.pattern_repo = TopicPatternRepository(db)
 
-    def execute(self, audience_id: UUID, force: bool = False) -> dict:
+    def execute(self, audience_id: UUID, force: bool = False, language: str = "en") -> dict:
         """
         Verifica e dispara deteccao de padroes se necessario.
 
@@ -73,7 +73,7 @@ class TriggerPatternAnalysisUseCase:
         )
 
         # Disparar em background
-        self._run_in_background(audience_id, analysis.id)
+        self._run_in_background(audience_id, analysis.id, language)
 
         return {
             "status": "processing",
@@ -82,7 +82,7 @@ class TriggerPatternAnalysisUseCase:
         }
 
     def _run_in_background(
-        self, audience_id: UUID, analysis_id: UUID
+        self, audience_id: UUID, analysis_id: UUID, language: str = "en",
     ) -> None:
         """Dispara deteccao de padroes em background thread."""
         from app.modules.shared.infra.database.database import SessionLocal
@@ -95,7 +95,7 @@ class TriggerPatternAnalysisUseCase:
                 )
 
                 use_case = DetectPatternsUseCase(db)
-                use_case.execute(audience_id, analysis_id)
+                use_case.execute(audience_id, analysis_id, language=language)
             except Exception:
                 logger.exception(
                     "Background pattern detection failed for audience %s",

@@ -190,7 +190,7 @@ def refresh_audience_topics(
     analysis = topic_repo.create_analysis(audience_id, fingerprint)
 
     trigger = TriggerTopicAnalysisUseCase(db)
-    trigger._run_in_background(audience_id, analysis.id)
+    trigger._run_in_background(audience_id, analysis.id, language=current_user.preferred_language)
 
     return {
         "status": "processing",

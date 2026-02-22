@@ -128,6 +128,6 @@ def refresh_topic_patterns(
         }
 
     trigger = TriggerPatternAnalysisUseCase(db)
-    result = trigger.execute(audience_id, force=True)
+    result = trigger.execute(audience_id, force=True, language=current_user.preferred_language)
 
     return result

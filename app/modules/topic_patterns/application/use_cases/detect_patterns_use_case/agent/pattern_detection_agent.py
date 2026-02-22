@@ -130,6 +130,7 @@ def detect_patterns(state: PatternDetectionState) -> dict:
         total_topics=len(topics),
         total_posts=len(posts),
         total_comments=total_comments,
+        language=state.get("language", "en"),
     )
 
     response = llm.invoke(prompt)
