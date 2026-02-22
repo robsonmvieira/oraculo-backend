@@ -9,6 +9,7 @@ from app.routes.audience_keywords import router as audience_keywords_router
 from app.routes.similar_communities import router as similar_communities_router
 from app.routes.communities import router as communities_router
 from app.routes.topic_deep_dive import router as topic_deep_dive_router
+from app.routes.topic_patterns import router as topic_patterns_router
 
 __all__ = [
     "auth_router",
@@ -20,4 +21,5 @@ __all__ = [
     "similar_communities_router",
     "communities_router",
     "topic_deep_dive_router",
+    "topic_patterns_router",
 ]

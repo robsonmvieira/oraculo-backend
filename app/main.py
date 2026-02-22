@@ -15,6 +15,7 @@ from app.routes import (
     communities_router,
     similar_communities_router,
     topic_deep_dive_router,
+    topic_patterns_router,
     topics_router,
 )
 
@@ -67,6 +68,7 @@ app.include_router(auth_router)
 app.include_router(topics_router)
 app.include_router(audiences_router)
 app.include_router(audience_templates_router)
+app.include_router(topic_patterns_router)
 app.include_router(audience_topics_router)
 app.include_router(audience_keywords_router)
 app.include_router(similar_communities_router)
