@@ -14,6 +14,7 @@ from app.routes import (
     audiences_router,
     communities_router,
     similar_communities_router,
+    topic_behavioral_patterns_router,
     topic_deep_dive_router,
     topic_patterns_router,
     topics_router,
@@ -74,6 +75,7 @@ app.include_router(audience_keywords_router)
 app.include_router(similar_communities_router)
 app.include_router(communities_router)
 app.include_router(topic_deep_dive_router)
+app.include_router(topic_behavioral_patterns_router)
 
 
 @app.get("/")
