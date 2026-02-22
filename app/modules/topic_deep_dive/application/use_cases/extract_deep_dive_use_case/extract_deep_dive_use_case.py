@@ -197,12 +197,48 @@ class ExtractDeepDiveUseCase:
                 len(deep_dive_result.get("subtopics", [])),
                 len(deep_dive_result.get("actionable_insights", [])),
             )
+
+            # 9. Notificar usuário
+            try:
+                from app.modules.notifications.application.services.notification_event_service import (
+                    NotificationEventService,
+                )
+
+                NotificationEventService(self.db).notify_analysis_complete(
+                    user_id=audience.user_id,
+                    analysis_type="deep_dive",
+                    analysis_id=analysis_id,
+                    audience_id=audience_id,
+                    audience_name=audience.name,
+                    topic_id=topic_id,
+                    topic_name=topic.name,
+                )
+            except Exception:
+                logger.debug("Failed to send notification for deep dive complete")
+
             return True
 
         except Exception as e:
             logger.exception("Deep dive failed for topic %s", topic_id)
             try:
                 self.deep_dive_repo.mark_failed(analysis_id, str(e))
+            except Exception:
+                pass
+            try:
+                from app.modules.notifications.application.services.notification_event_service import (
+                    NotificationEventService,
+                )
+
+                NotificationEventService(self.db).notify_analysis_failed(
+                    user_id=audience.user_id,
+                    analysis_type="deep_dive",
+                    analysis_id=analysis_id,
+                    audience_id=audience_id,
+                    audience_name=audience.name,
+                    error_message=str(e),
+                    topic_id=topic_id,
+                    topic_name=topic.name if topic else None,
+                )
             except Exception:
                 pass
             return False

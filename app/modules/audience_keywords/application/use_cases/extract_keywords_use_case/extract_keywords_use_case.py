@@ -104,12 +104,44 @@ class ExtractKeywordsUseCase:
                 audience.name,
                 len(extracted),
             )
+
+            # 7. Notificar usuário
+            try:
+                from app.modules.notifications.application.services.notification_event_service import (
+                    NotificationEventService,
+                )
+
+                NotificationEventService(self.db).notify_analysis_complete(
+                    user_id=audience.user_id,
+                    analysis_type="keyword_analysis",
+                    analysis_id=analysis_id,
+                    audience_id=audience_id,
+                    audience_name=audience.name,
+                )
+            except Exception:
+                logger.debug("Failed to send notification for keyword analysis complete")
+
             return True
 
         except Exception as e:
             logger.exception("Keyword extraction failed for audience %s", audience_id)
             try:
                 self.keyword_repo.mark_failed(analysis_id, str(e))
+            except Exception:
+                pass
+            try:
+                from app.modules.notifications.application.services.notification_event_service import (
+                    NotificationEventService,
+                )
+
+                NotificationEventService(self.db).notify_analysis_failed(
+                    user_id=audience.user_id,
+                    analysis_type="keyword_analysis",
+                    analysis_id=analysis_id,
+                    audience_id=audience_id,
+                    audience_name=audience.name,
+                    error_message=str(e),
+                )
             except Exception:
                 pass
             return False

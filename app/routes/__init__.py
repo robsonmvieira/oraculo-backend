@@ -11,6 +11,7 @@ from app.routes.communities import router as communities_router
 from app.routes.topic_deep_dive import router as topic_deep_dive_router
 from app.routes.topic_patterns import router as topic_patterns_router
 from app.routes.topic_behavioral_patterns import router as topic_behavioral_patterns_router
+from app.routes.notifications import router as notifications_router
 
 __all__ = [
     "auth_router",
@@ -24,4 +25,5 @@ __all__ = [
     "topic_deep_dive_router",
     "topic_patterns_router",
     "topic_behavioral_patterns_router",
+    "notifications_router",
 ]
