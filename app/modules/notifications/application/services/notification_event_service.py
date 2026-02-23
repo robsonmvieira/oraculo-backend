@@ -21,6 +21,7 @@ _TYPE_LABELS = {
     "deep_dive": "Deep Dive",
     "pattern_analysis": "Pattern Analysis",
     "behavioral_pattern": "Behavioral Patterns",
+    "sentiment": "Sentiment Analysis",
 }
 
 

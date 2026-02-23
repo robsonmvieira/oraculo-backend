@@ -54,25 +54,100 @@ Authorization: Bearer {{token}}
 ###############################################################################
 
 ### Iniciar análise de sentimento (retorna 202 Accepted)
-# Dispara análise em background thread.
-# Se já existe uma análise em processamento, retorna o status atual.
+# Cria uma nova análise e a processa em background.
+# Se já existe uma análise em processamento, retorna o status sem criar outra.
+#
+# O processamento envolve:
+#   1. Coleta de posts das comunidades do tópico (~50 posts)
+#   2. Filtragem por relevância ao tópico (keywords matching)
+#   3. Coleta de comentários dos top 10 posts (20 comments cada)
+#   4. Análise profunda de sentimento via LLM (8 dimensões)
+#
+# Tempo estimado: ~2-3 minutos (depende do rate limiting do Reddit)
+#
+# Resposta:
+#   {status: "processing", message: "...", analysis_id: "uuid"}
 #
 POST {{base_url}}/audiences/{{audience_id}}/topics/{{topic_id}}/sentiment/refresh
 content-type: application/json
 Authorization: Bearer {{token}}
 
 ###############################################################################
-# 3. CENÁRIOS DE ERRO
+# 3. CONSULTAR SENTIMENTO APÓS PROCESSAMENTO
 ###############################################################################
 
-### Tópico inexistente (retorna 404)
+### Consultar sentimento (após ~2-3min → status: "ready")
+# Mesma chamada do passo 1. Quando a análise termina, retorna os dados.
+#
+# Exemplo de resposta (resumido):
+# {
+#   "status": "ready",
+#   "topic_name": "AI in Marketing",
+#   "overall_sentiment": {
+#     "score": "mixed",
+#     "positive_ratio": 0.45,
+#     "negative_ratio": 0.25,
+#     "neutral_ratio": 0.30
+#   },
+#   "emotional_map": [
+#     {"emotion": "enthusiasm", "intensity": "high", "percentage": 0.30, "example": "AI is transforming how we..."},
+#     {"emotion": "anxiety", "intensity": "medium", "percentage": 0.20, "example": "Will AI replace marketers?"}
+#   ],
+#   "sentiment_by_community": [
+#     {"community": "r/digital_marketing", "positive": 0.55, "negative": 0.15, "neutral": 0.30, "dominant_emotion": "enthusiasm"}
+#   ],
+#   "sentiment_by_subtopic": [
+#     {"subtopic": "AI Content & Automation", "sentiment": "positive", "score": 0.72, "key_driver": "time savings"}
+#   ],
+#   "sentiment_drivers": {
+#     "positive": [
+#       {"driver": "Time savings", "frequency": "high", "mentions": 18, "example_quote": "AI saves me 10 hours a week..."}
+#     ],
+#     "negative": [
+#       {"driver": "Job displacement fear", "frequency": "medium", "mentions": 9, "example_quote": "I worry that AI will..."}
+#     ]
+#   },
+#   "tension_points": [
+#     {"topic": "AI replacing human creativity", "for_ratio": 0.45, "against_ratio": 0.55, "intensity": "high", "summary": "Heated debate about..."}
+#   ],
+#   "pain_points": [
+#     {"pain": "AI-generated content lacks authenticity", "severity": "high", "frequency": "medium", "communities": ["r/marketing"], "verbatim": "You can always tell when..."}
+#   ],
+#   "sentiment_opportunities": [
+#     {"opportunity": "AI-human hybrid workflows", "based_on": "Strong demand for tools that augment rather than replace", "confidence": "high", "target_audience": "Marketing managers"}
+#   ]
+# }
+#
+GET {{base_url}}/audiences/{{audience_id}}/topics/{{topic_id}}/sentiment
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 4. TESTAR COM OUTROS TÓPICOS
+###############################################################################
+
+### Listar tópicos disponíveis (para pegar topic_id)
+# Use este endpoint para descobrir os topic_ids disponíveis.
+# Pegue o "id" de qualquer tópico e substitua em @topic_id acima.
+#
+GET {{base_url}}/audiences/{{audience_id}}/topics?limit=10&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 5. CENÁRIOS DE ERRO
+###############################################################################
+
+### Tópico inexistente (→ 404)
 GET {{base_url}}/audiences/{{audience_id}}/topics/00000000-0000-0000-0000-000000000000/sentiment
 content-type: application/json
 Authorization: Bearer {{token}}
 
-###
-
-### Audiência inexistente (retorna 404)
+### Audiência inexistente (→ 404)
 GET {{base_url}}/audiences/00000000-0000-0000-0000-000000000000/topics/{{topic_id}}/sentiment
 content-type: application/json
 Authorization: Bearer {{token}}
+
+### Sem autenticação (→ 401)
+GET {{base_url}}/audiences/{{audience_id}}/topics/{{topic_id}}/sentiment
+content-type: application/json

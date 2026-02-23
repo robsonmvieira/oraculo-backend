@@ -1,0 +1,151 @@
+###############################################################################
+# Notifications (SSE + REST)
+#
+# Sistema de notificações em tempo real via Server-Sent Events (SSE) com
+# persistência no banco para controle de lida/não lida.
+#
+# Quando processos assíncronos (deep dive, behavioral patterns, topic
+# patterns, sentiment analysis, keyword extraction, topic extraction) finalizam, o sistema:
+#   1. Persiste a notificação no PostgreSQL (is_read=false)
+#   2. Publica via Redis pub/sub para entrega em tempo real via SSE
+#
+# FLUXO SSE:
+#   1. Frontend conecta em GET /notifications/stream?token=JWT
+#   2. Conexão permanece aberta (text/event-stream)
+#   3. Quando uma análise termina, evento chega automaticamente
+#   4. Frontend exibe notificação ao usuário
+#
+# FLUXO REST:
+#   - GET    /notifications           → lista paginada
+#   - GET    /notifications/unread-count → contagem de não lidas
+#   - PATCH  /notifications/{id}/read → marca uma como lida
+#   - PATCH  /notifications/read-all  → marca todas como lidas
+#
+# TIPOS DE NOTIFICAÇÃO:
+#   - behavioral_pattern_complete / behavioral_pattern_failed
+#   - deep_dive_complete / deep_dive_failed
+#   - pattern_analysis_complete / pattern_analysis_failed
+#   - sentiment_complete / sentiment_failed
+#   - keyword_analysis_complete / keyword_analysis_failed
+#   - topic_analysis_complete / topic_analysis_failed
+#
+# NOTA: O endpoint SSE usa JWT via query param (?token=) porque
+#       EventSource do browser não suporta headers customizados.
+###############################################################################
+
+@base_url = http://localhost:8000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNWYzOTZhOC1iYmU2LTRkOWItOGI5OS1jMGE1ZTc3ZjgwNzEiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcxNzg5NDg4fQ.5sUfRnrArw8tz0JyeZpBCUbcL2m62hZLRmlMDjymjs0
+
+# ID de exemplo — substitua pelo seu
+@notification_id = 00000000-0000-0000-0000-000000000000
+
+###############################################################################
+# 1. SSE — STREAM DE NOTIFICAÇÕES EM TEMPO REAL
+###############################################################################
+
+### Conectar ao stream SSE
+# Abre conexão persistente. Eventos chegam no formato:
+#
+#   id: <notification_id>
+#   event: notification
+#   data: {"id":"...","type":"deep_dive_complete","title":"Deep Dive Ready",
+#          "message":"Deep dive analysis for topic 'AI Tools' is complete.",
+#          "metadata":{"audience_id":"...","topic_id":"...","analysis_id":"..."},
+#          "created_at":"2026-02-22T20:30:00+00:00"}
+#
+# Heartbeat a cada ~30s para manter conexão:
+#   : heartbeat
+#
+# NOTA: Para testar SSE no terminal, use:
+#   curl -N "http://localhost:8000/notifications/stream?token=SEU_TOKEN"
+#
+GET {{base_url}}/notifications/stream?token={{token}}
+
+###############################################################################
+# 2. LISTAR NOTIFICAÇÕES
+###############################################################################
+
+### Listar todas as notificações (paginado, mais recentes primeiro)
+# Query params opcionais:
+#   - limit (default: 50)
+#   - offset (default: 0)
+#   - unread_only (default: false)
+#
+# Resposta:
+# {
+#   "notifications": [
+#     {
+#       "id": "uuid",
+#       "type": "deep_dive_complete",
+#       "title": "Deep Dive Ready",
+#       "message": "Deep Dive analysis for topic 'AI Tools' is complete.",
+#       "metadata": {
+#         "audience_id": "...",
+#         "topic_id": "...",
+#         "analysis_id": "...",
+#         "topic_name": "AI Tools",
+#         "audience_name": "Marketing SaaS"
+#       },
+#       "is_read": false,
+#       "created_at": "2026-02-22T20:30:00+00:00",
+#       "read_at": null
+#     }
+#   ]
+# }
+#
+GET {{base_url}}/notifications?limit=20&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+### Listar apenas não lidas
+GET {{base_url}}/notifications?unread_only=true
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 3. CONTAGEM DE NÃO LIDAS
+###############################################################################
+
+### Obter contagem de notificações não lidas
+# Resposta: {"unread_count": 3}
+#
+GET {{base_url}}/notifications/unread-count
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 4. MARCAR COMO LIDA
+###############################################################################
+
+### Marcar uma notificação como lida
+# Resposta: {"marked_read": true}
+#
+PATCH {{base_url}}/notifications/{{notification_id}}/read
+content-type: application/json
+Authorization: Bearer {{token}}
+
+### Marcar todas como lidas
+# Resposta: {"marked_read": 5}  (quantidade atualizada)
+#
+PATCH {{base_url}}/notifications/read-all
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 5. CENÁRIOS DE ERRO
+###############################################################################
+
+### Notificação inexistente (→ 404)
+PATCH {{base_url}}/notifications/00000000-0000-0000-0000-000000000000/read
+content-type: application/json
+Authorization: Bearer {{token}}
+
+### Sem autenticação (→ 401)
+GET {{base_url}}/notifications
+content-type: application/json
+
+### SSE sem token (→ 422)
+GET {{base_url}}/notifications/stream
+
+### SSE com token inválido (→ 401)
+GET {{base_url}}/notifications/stream?token=invalid-token

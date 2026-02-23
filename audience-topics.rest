@@ -1,0 +1,171 @@
+###############################################################################
+# Audience Topics (Topicos da Audiencia)
+#
+# Analise de topicos extraidos das comunidades de uma audiencia.
+# O sistema coleta posts de todas as comunidades da audiencia,
+# processa via LLM e extrai os topicos mais relevantes com:
+# nome, descricao, crescimento, frequencia, comunidades associadas.
+#
+# FLUXO:
+#   1. GET  /topics          -> primeira vez retorna "no_analysis"
+#   2. POST /topics/refresh  -> dispara analise em background (202)
+#   3. GET  /topics          -> durante processamento retorna "processing"
+#   4. GET  /topics          -> apos ~3-5min retorna "ready" com topicos
+#
+# NOTA: A analise e sob demanda. So roda quando o usuario solicita
+#       via POST refresh. A audiencia precisa ter comunidades vinculadas.
+#
+# ACOES POR TOPICO (endpoints separados):
+#   - Deep Dive:           GET/POST .../topics/{id}/deep-dive              (ver topic-deep-dive.rest)
+#   - Behavioral Patterns: GET/POST .../topics/{id}/behavioral-patterns    (ver topic-behavioral-patterns.rest)
+#   - Sentiment:           GET/POST .../topics/{id}/sentiment              (ver topic-sentiment.rest)
+###############################################################################
+
+@base_url = http://localhost:8000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNWYzOTZhOC1iYmU2LTRkOWItOGI5OS1jMGE1ZTc3ZjgwNzEiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcxNzg3MzE2fQ.uPK-m95adqi36TT0aS5HmJNuk-gk7uO-TMlr7X6oRZw
+
+# IDs de exemplo — substitua pelos seus
+@audience_id = e9458348-6cad-4ba6-bf3e-87674d035613
+@topic_id = 13129258-589b-4c3a-b7ab-aaf8f7d46346
+
+###############################################################################
+# 1. LISTAR TOPICOS DA AUDIENCIA
+###############################################################################
+
+### Listar topicos (default: ordenados por rank)
+# Retorna a analise mais recente com status "ready".
+# Se nao existe ou esta em processamento, retorna status correspondente.
+#
+# Respostas possiveis:
+#   - "no_analysis": Nenhuma analise existe. Use POST /refresh para iniciar.
+#   - "processing":  Analise em andamento. Aguarde 3-5 minutos.
+#   - "ready":       Analise pronta. Retorna lista de topicos.
+#   - "failed":      Analise falhou. Verifique error_message.
+#
+# Query params:
+#   - sort_by: "rank" (padrao), "growth", "frequency", "name"
+#   - limit: Maximo de topicos (default: 200)
+#   - offset: Paginacao (default: 0)
+#
+# Quando status = "ready", cada topico contem:
+#   - id:                 UUID do topico (usar em deep-dive e patterns)
+#   - name:               Nome do topico
+#   - description:        Descricao gerada pelo LLM
+#   - growth_percentage:  % de crescimento
+#   - mention_frequency:  Frequencia de mencoes
+#   - mention_period:     Periodo de analise
+#   - post_count:         Numero de posts relacionados
+#   - communities:        [{name, ...}] comunidades onde aparece
+#   - rank:               Posicao no ranking
+#
+GET {{base_url}}/audiences/{{audience_id}}/topics
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 2. ORDENACAO E PAGINACAO
+###############################################################################
+
+### Ordenar por crescimento
+GET {{base_url}}/audiences/{{audience_id}}/topics?sort_by=growth
+content-type: application/json
+Authorization: Bearer {{token}}
+
+### Ordenar por frequencia de mencoes
+GET {{base_url}}/audiences/{{audience_id}}/topics?sort_by=frequency
+content-type: application/json
+Authorization: Bearer {{token}}
+
+### Com paginacao
+GET {{base_url}}/audiences/{{audience_id}}/topics?limit=5&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 3. DETALHE DE UM TOPICO
+###############################################################################
+
+### Obter detalhe completo de um topico
+# Retorna todos os campos do topico incluindo created_at.
+# O topic_id pode ser obtido da listagem acima.
+#
+# Erros:
+#   - 404: Topico nao encontrado
+#
+GET {{base_url}}/audiences/{{audience_id}}/topics/{{topic_id}}
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 4. DISPARAR ANALISE DE TOPICOS
+###############################################################################
+
+### Forcar reprocessamento da analise de topicos (202 Accepted)
+# Dispara nova analise em background.
+# Se ja existe uma em processamento, retorna o status sem criar outra.
+#
+# O processamento envolve:
+#   1. Coleta de posts de todas as comunidades da audiencia
+#   2. Processamento via LLM para extracao de topicos
+#   3. Calculo de metricas (rank, growth, frequency)
+#
+# Tempo estimado: ~3-5 minutos (depende do rate limiting do Reddit)
+#
+# Pre-requisito: Audiencia precisa ter comunidades vinculadas (senao 400).
+#
+# Resposta:
+#   {status: "processing", message: "...", analysis_id: "uuid"}
+#
+POST {{base_url}}/audiences/{{audience_id}}/topics/refresh
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 5. CONSULTAR APOS PROCESSAMENTO
+###############################################################################
+
+### Consultar topicos (apos ~3-5min -> status: "ready")
+# Mesma chamada do passo 1. Quando a analise termina, retorna os topicos.
+#
+# Exemplo de resposta (resumido):
+# {
+#   "status": "ready",
+#   "analysis_id": "uuid",
+#   "total_topics": 15,
+#   "completed_at": "2026-02-22T14:02:09Z",
+#   "topics": [
+#     {
+#       "id": "uuid",
+#       "name": "AI in Marketing",
+#       "description": "Discussions about using AI tools in marketing campaigns...",
+#       "growth_percentage": 45.2,
+#       "mention_frequency": "high",
+#       "mention_period": "weekly",
+#       "post_count": 23,
+#       "communities": [{"name": "r/digitalmarketing"}, {"name": "r/marketing"}],
+#       "rank": 1
+#     }
+#   ]
+# }
+#
+GET {{base_url}}/audiences/{{audience_id}}/topics
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 6. CENARIOS DE ERRO
+###############################################################################
+
+### Audiencia inexistente (-> 404)
+GET {{base_url}}/audiences/00000000-0000-0000-0000-000000000000/topics
+content-type: application/json
+Authorization: Bearer {{token}}
+
+### Topico inexistente (-> 404)
+GET {{base_url}}/audiences/{{audience_id}}/topics/00000000-0000-0000-0000-000000000000
+content-type: application/json
+Authorization: Bearer {{token}}
+
+### Sem autenticacao (-> 401)
+GET {{base_url}}/audiences/{{audience_id}}/topics
+content-type: application/json
