@@ -48,19 +48,13 @@ TASK: Analyze ALL topics and posts together to detect cross-topic patterns that 
    - "communities": Array of communities where this question appears
    - "opportunity": What product, content, or service could address this gap
 
-4. **emerging_opinions**: Identify 3-6 minority opinions or positions that appear to be gaining traction. Each should have:
-   - "opinion": The opinion or position
-   - "support_level": "growing", "established", or "nascent"
-   - "evidence": Brief evidence from the data (quotes, upvote patterns, etc.)
-   - "communities": Array of communities where this opinion appears
-
-5. **cross_community_gaps**: Identify 3-6 topics or themes that are heavily discussed in some communities but completely absent in others where they would be relevant. Each should have:
+4. **cross_community_gaps**: Identify 3-6 topics or themes that are heavily discussed in some communities but completely absent in others where they would be relevant. Each should have:
    - "topic": The topic or theme
    - "discussed_in": Array of communities where it's discussed
    - "missing_in": Array of communities where it's absent but relevant
    - "opportunity": Why this gap matters and what could fill it
 
-6. **content_opportunities**: Extract 3-8 specific content or product opportunities derived from all the patterns above. Each should have:
+5. **content_opportunities**: Extract 3-8 specific content or product opportunities derived from all the patterns above. Each should have:
    - "opportunity": Clear, actionable description
    - "type": "content" (blog post, guide, course), "product" (tool, SaaS), or "service" (consulting, agency)
    - "confidence": "high", "medium", or "low"
@@ -76,6 +70,6 @@ IMPORTANT:
 Respond ONLY with valid JSON. No markdown code blocks, no explanations outside the JSON.
 
 Example structure:
-{{"summary": "...", "co_occurrences": [...], "unanswered_questions": [...], "emerging_opinions": [...], "cross_community_gaps": [...], "content_opportunities": [...]}}"""
+{{"summary": "...", "co_occurrences": [...], "unanswered_questions": [...], "cross_community_gaps": [...], "content_opportunities": [...]}}"""
 
     return prompt + get_language_directive(language)

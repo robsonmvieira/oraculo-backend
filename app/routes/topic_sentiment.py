@@ -1,14 +1,14 @@
-"""Routes for topic deep dive analysis (Browse All)."""
+"""Routes for topic sentiment analysis."""
 
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.modules.topic_deep_dive.application.use_cases.trigger_deep_dive_use_case import (
-    TriggerDeepDiveUseCase,
+from app.modules.topic_sentiment.application.use_cases.trigger_sentiment_use_case import (
+    TriggerSentimentUseCase,
 )
-from app.modules.topic_deep_dive.infra.repositories.topic_deep_dive_repository import (
-    TopicDeepDiveRepository,
+from app.modules.topic_sentiment.infra.repositories.topic_sentiment_repository import (
+    TopicSentimentRepository,
 )
 from app.modules.audience_topics.infra.repositories.audience_topic_repository import (
     AudienceTopicRepository,
@@ -20,7 +20,7 @@ from app.modules.identity.dependencies import get_current_user
 from app.modules.identity.domain.entities.user import User
 from app.modules.shared.infra.database.database import get_db
 
-router = APIRouter(prefix="/audiences", tags=["Topic Deep Dive"])
+router = APIRouter(prefix="/audiences", tags=["Topic Sentiment"])
 
 AUDIENCE_NOT_FOUND = "Audience not found"
 TOPIC_NOT_FOUND = "Topic not found"
@@ -34,15 +34,15 @@ def _check_ownership(audience, current_user: User) -> None:
         raise HTTPException(status_code=403, detail="Acesso negado")
 
 
-@router.get("/{audience_id}/topics/{topic_id}/deep-dive")
-def get_topic_deep_dive(
+@router.get("/{audience_id}/topics/{topic_id}/sentiment")
+def get_topic_sentiment(
     audience_id: UUID,
     topic_id: UUID,
     current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
-    Retorna a análise de deep dive de um tópico.
+    Retorna a análise de sentimento de um tópico.
 
     Se não existe análise, retorna status 'no_analysis'.
     Se está em processamento, retorna status 'processing'.
@@ -61,13 +61,13 @@ def get_topic_deep_dive(
     if not topic:
         raise HTTPException(status_code=404, detail=TOPIC_NOT_FOUND)
 
-    deep_dive_repo = TopicDeepDiveRepository(db)
-    latest = deep_dive_repo.find_latest_by_topic(topic_id)
+    sentiment_repo = TopicSentimentRepository(db)
+    latest = sentiment_repo.find_latest_by_topic(topic_id)
 
     if not latest:
         return {
             "status": "no_analysis",
-            "message": "Nenhuma análise de deep dive encontrada. Clique em 'Browse All' para iniciar.",
+            "message": "Nenhuma análise de sentimento encontrada. Clique em 'Sentimento' para iniciar.",
             "topic_id": str(topic_id),
             "topic_name": topic.name,
         }
@@ -75,7 +75,7 @@ def get_topic_deep_dive(
     if latest.status == "processing":
         return {
             "status": "processing",
-            "message": "Análise de deep dive em andamento. Tente novamente em alguns minutos.",
+            "message": "Análise de sentimento em andamento. Tente novamente em alguns minutos.",
             "analysis_id": str(latest.id),
             "topic_id": str(topic_id),
             "topic_name": topic.name,
@@ -90,9 +90,9 @@ def get_topic_deep_dive(
             "topic_name": topic.name,
         }
 
-    # Status ready — buscar deep dive
-    deep_dive = deep_dive_repo.get_deep_dive(latest.id)
-    if not deep_dive:
+    # Status ready — buscar sentimento
+    sentiment = sentiment_repo.get_sentiment(latest.id)
+    if not sentiment:
         return {
             "status": "failed",
             "message": "Análise marcada como pronta mas sem dados.",
@@ -107,24 +107,26 @@ def get_topic_deep_dive(
         "topic_id": str(topic_id),
         "topic_name": topic.name,
         "completed_at": latest.completed_at.isoformat() if latest.completed_at else None,
-        "summary": deep_dive.summary,
-        "subtopics": deep_dive.subtopics,
-        "common_questions": deep_dive.common_questions,
-        "mentioned_products": deep_dive.mentioned_products,
-        "representative_posts": deep_dive.representative_posts,
-        "actionable_insights": deep_dive.actionable_insights,
+        "overall_sentiment": sentiment.overall_sentiment,
+        "emotional_map": sentiment.emotional_map,
+        "sentiment_by_community": sentiment.sentiment_by_community,
+        "sentiment_by_subtopic": sentiment.sentiment_by_subtopic,
+        "sentiment_drivers": sentiment.sentiment_drivers,
+        "tension_points": sentiment.tension_points,
+        "pain_points": sentiment.pain_points,
+        "sentiment_opportunities": sentiment.sentiment_opportunities,
     }
 
 
-@router.post("/{audience_id}/topics/{topic_id}/deep-dive/refresh", status_code=202)
-def refresh_topic_deep_dive(
+@router.post("/{audience_id}/topics/{topic_id}/sentiment/refresh", status_code=202)
+def refresh_topic_sentiment(
     audience_id: UUID,
     topic_id: UUID,
     current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
-    Força reprocessamento da análise de deep dive.
+    Força reprocessamento da análise de sentimento.
     Útil quando o usuário quer dados atualizados.
     """
     audience_repo = AudienceRepository(db)
@@ -141,8 +143,8 @@ def refresh_topic_deep_dive(
         raise HTTPException(status_code=404, detail=TOPIC_NOT_FOUND)
 
     # Verificar se já há uma análise em processamento
-    deep_dive_repo = TopicDeepDiveRepository(db)
-    latest = deep_dive_repo.find_latest_by_topic(topic_id)
+    sentiment_repo = TopicSentimentRepository(db)
+    latest = sentiment_repo.find_latest_by_topic(topic_id)
     if latest and latest.status == "processing":
         return {
             "status": "processing",
@@ -150,7 +152,7 @@ def refresh_topic_deep_dive(
             "analysis_id": str(latest.id),
         }
 
-    trigger = TriggerDeepDiveUseCase(db)
+    trigger = TriggerSentimentUseCase(db)
     result = trigger.execute(topic_id, audience_id, force=True, language=current_user.preferred_language)
 
     return result

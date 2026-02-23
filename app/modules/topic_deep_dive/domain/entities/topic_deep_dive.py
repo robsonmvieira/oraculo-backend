@@ -61,7 +61,7 @@ class TopicDeepDiveAnalysis(Base):
 class TopicDeepDive(Base):
     """
     Resultado do deep dive de um tópico.
-    Contém análise profunda: subtópicos, FAQs, sentimento, produtos, insights.
+    Contém análise profunda: subtópicos, FAQs, produtos, insights.
     """
 
     __tablename__ = "topic_deep_dives"
@@ -78,10 +78,6 @@ class TopicDeepDive(Base):
     # [{"name": "...", "description": "...", "post_count": N}]
     common_questions = Column(JSON, nullable=True)
     # [{"question": "...", "frequency": "high|medium|low", "example_context": "..."}]
-    sentiment = Column(JSON, nullable=True)
-    # {"overall": "positive|negative|neutral|mixed", "positive_ratio": 0.6,
-    #  "negative_ratio": 0.2, "neutral_ratio": 0.2,
-    #  "highlights": [{"text": "...", "sentiment": "positive", "source": "r/sub"}]}
     mentioned_products = Column(JSON, nullable=True)
     # [{"name": "...", "category": "tool|service|brand", "sentiment": "positive",
     #   "mention_count": N, "context": "..."}]

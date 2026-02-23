@@ -40,6 +40,7 @@ from app.modules.audience_topics.domain.entities import audience_topic  # noqa: 
 from app.modules.audience_keywords.domain.entities import audience_keyword  # noqa: E402
 from app.modules.topic_deep_dive.domain.entities import topic_deep_dive  # noqa: E402
 from app.modules.topic_patterns.domain.entities import topic_pattern  # noqa: E402
+from app.modules.topic_sentiment.domain.entities import topic_sentiment  # noqa: E402
 from app.modules.topic_behavioral_patterns.domain.entities import topic_behavioral_pattern  # noqa: E402
 from app.modules.notifications.domain.entities import notification  # noqa: E402
 

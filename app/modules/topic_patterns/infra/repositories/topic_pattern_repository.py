@@ -103,7 +103,6 @@ class TopicPatternRepository:
             summary=data.get("summary"),
             co_occurrences=data.get("co_occurrences"),
             unanswered_questions=data.get("unanswered_questions"),
-            emerging_opinions=data.get("emerging_opinions"),
             cross_community_gaps=data.get("cross_community_gaps"),
             content_opportunities=data.get("content_opportunities"),
         )

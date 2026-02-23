@@ -42,17 +42,7 @@ TASK: Perform a comprehensive deep dive analysis of this topic. You must produce
    - "frequency": "high", "medium", or "low"
    - "example_context": A brief excerpt from a real post/comment showing this question
 
-4. **sentiment**: Analyze the overall sentiment around this topic:
-   - "overall": "positive", "negative", "neutral", or "mixed"
-   - "positive_ratio": float 0-1
-   - "negative_ratio": float 0-1
-   - "neutral_ratio": float 0-1
-   - "highlights": Array of 3-6 notable sentiment examples, each with:
-     - "text": The quote or paraphrased text
-     - "sentiment": "positive", "negative", or "neutral"
-     - "source": The subreddit it came from (e.g., "r/SocialMediaMarketing")
-
-5. **mentioned_products**: List tools, services, brands, or products mentioned in discussions. Each should have:
+4. **mentioned_products**: List tools, services, brands, or products mentioned in discussions. Each should have:
    - "name": Product/tool name
    - "category": "tool", "service", "brand", "platform", or "resource"
    - "sentiment": "positive", "negative", "neutral", or "mixed"
@@ -61,7 +51,7 @@ TASK: Perform a comprehensive deep dive analysis of this topic. You must produce
 
    If no products are mentioned, return an empty array.
 
-6. **actionable_insights**: Extract 3-6 actionable insights from the analysis. Each should have:
+5. **actionable_insights**: Extract 3-6 actionable insights from the analysis. Each should have:
    - "insight": Clear, actionable statement
    - "type": "opportunity" (unmet need), "gap" (missing content/solution), "trend" (emerging pattern), or "warning" (risk/issue)
    - "confidence": "high", "medium", or "low"
@@ -70,12 +60,11 @@ IMPORTANT:
 - Base ALL analysis on the actual posts and comments provided. Do NOT invent data.
 - If there isn't enough data for a section, provide fewer items rather than fabricating.
 - Be specific — reference actual content patterns, not generic observations.
-- Sentiment ratios must sum to 1.0.
 
 Respond ONLY with valid JSON. No markdown code blocks, no explanations outside the JSON.
 
 Example structure:
-{{"summary": "...", "subtopics": [...], "common_questions": [...], "sentiment": {{...}}, "mentioned_products": [...], "actionable_insights": [...]}}"""
+{{"summary": "...", "subtopics": [...], "common_questions": [...], "mentioned_products": [...], "actionable_insights": [...]}}"""
 
     return prompt + get_language_directive(language)
 

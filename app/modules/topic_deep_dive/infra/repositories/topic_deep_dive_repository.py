@@ -104,7 +104,6 @@ class TopicDeepDiveRepository:
             summary=data.get("summary"),
             subtopics=data.get("subtopics"),
             common_questions=data.get("common_questions"),
-            sentiment=data.get("sentiment"),
             mentioned_products=data.get("mentioned_products"),
             representative_posts=data.get("representative_posts"),
             actionable_insights=data.get("actionable_insights"),
