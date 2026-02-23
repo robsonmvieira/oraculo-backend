@@ -94,7 +94,6 @@ def get_topic_patterns(
         "summary": pattern.summary,
         "co_occurrences": pattern.co_occurrences,
         "unanswered_questions": pattern.unanswered_questions,
-        "emerging_opinions": pattern.emerging_opinions,
         "cross_community_gaps": pattern.cross_community_gaps,
         "content_opportunities": pattern.content_opportunities,
     }

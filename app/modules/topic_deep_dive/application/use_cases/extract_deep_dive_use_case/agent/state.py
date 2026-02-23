@@ -19,9 +19,6 @@ class DeepDiveResult(TypedDict):
     # [{"name": "...", "description": "...", "post_count": N}]
     common_questions: list[dict]
     # [{"question": "...", "frequency": "high|medium|low", "example_context": "..."}]
-    sentiment: dict
-    # {"overall": "...", "positive_ratio": float, "negative_ratio": float,
-    #  "neutral_ratio": float, "highlights": [...]}
     mentioned_products: list[dict]
     # [{"name": "...", "category": "...", "sentiment": "...", "mention_count": N, "context": "..."}]
     representative_posts: list[dict]

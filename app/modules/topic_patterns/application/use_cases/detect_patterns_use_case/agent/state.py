@@ -27,8 +27,6 @@ class PatternResult(TypedDict):
     # [{"topics": ["A", "B"], "frequency": "high", "context": "..."}]
     unanswered_questions: list[dict]
     # [{"question": "...", "frequency": "high", "communities": ["r/..."], "opportunity": "..."}]
-    emerging_opinions: list[dict]
-    # [{"opinion": "...", "support_level": "growing", "evidence": "...", "communities": ["r/..."]}]
     cross_community_gaps: list[dict]
     # [{"topic": "...", "discussed_in": ["r/..."], "missing_in": ["r/..."], "opportunity": "..."}]
     content_opportunities: list[dict]

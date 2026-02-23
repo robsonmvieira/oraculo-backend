@@ -55,7 +55,7 @@ class TopicPatternAnalysis(Base):
 class TopicPattern(Base):
     """
     Resultado da deteccao de padroes cross-topic.
-    Contem co-ocorrencias, perguntas sem resposta, opinioes emergentes, gaps e oportunidades.
+    Contem co-ocorrencias, perguntas sem resposta, gaps e oportunidades.
     """
 
     __tablename__ = "topic_patterns"
@@ -72,8 +72,6 @@ class TopicPattern(Base):
     # [{"topics": ["A", "B"], "frequency": "high", "context": "..."}]
     unanswered_questions = Column(JSON, nullable=True)
     # [{"question": "...", "frequency": "high", "communities": ["r/..."], "opportunity": "..."}]
-    emerging_opinions = Column(JSON, nullable=True)
-    # [{"opinion": "...", "support_level": "growing", "evidence": "...", "communities": ["r/..."]}]
     cross_community_gaps = Column(JSON, nullable=True)
     # [{"topic": "...", "discussed_in": ["r/..."], "missing_in": ["r/..."], "opportunity": "..."}]
     content_opportunities = Column(JSON, nullable=True)
