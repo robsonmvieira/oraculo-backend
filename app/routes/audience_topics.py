@@ -16,6 +16,9 @@ from app.modules.audiences.infra.repositories.audience_repository import (
 from app.modules.identity.dependencies import get_current_user
 from app.modules.identity.domain.entities.user import User
 from app.modules.shared.infra.database.database import get_db
+from app.modules.topic_snapshots.infra.repositories.topic_snapshot_repository import (
+    TopicSnapshotRepository,
+)
 
 router = APIRouter(prefix="/audiences", tags=["Audience Topics"])
 
@@ -91,25 +94,40 @@ def list_audience_topics(
         offset=offset,
     )
 
+    # Enriquecer com dados de crescimento real (snapshots)
+    snapshot_repo = TopicSnapshotRepository(db)
+    enriched_topics = []
+    for t in topics:
+        topic_data = {
+            "id": str(t.id),
+            "name": t.name,
+            "description": t.description,
+            "growth_percentage": t.growth_percentage,
+            "growth_source": "estimated",
+            "growth_trend": None,
+            "mention_frequency": t.mention_frequency,
+            "mention_period": t.mention_period,
+            "post_count": t.post_count,
+            "communities": t.communities,
+            "rank": t.rank,
+        }
+
+        # Tentar calcular crescimento real a partir de snapshots
+        name_normalized = TopicSnapshotRepository.normalize_topic_name(t.name)
+        growth_data = snapshot_repo.calculate_real_growth(audience_id, name_normalized)
+        if growth_data:
+            topic_data["growth_percentage"] = growth_data["growth_percentage"]
+            topic_data["growth_source"] = "calculated"
+            topic_data["growth_trend"] = growth_data["trend"]
+
+        enriched_topics.append(topic_data)
+
     return {
         "status": "ready",
         "analysis_id": str(latest.id),
         "total_topics": latest.total_topics,
         "completed_at": latest.completed_at.isoformat() if latest.completed_at else None,
-        "topics": [
-            {
-                "id": str(t.id),
-                "name": t.name,
-                "description": t.description,
-                "growth_percentage": t.growth_percentage,
-                "mention_frequency": t.mention_frequency,
-                "mention_period": t.mention_period,
-                "post_count": t.post_count,
-                "communities": t.communities,
-                "rank": t.rank,
-            }
-            for t in topics
-        ],
+        "topics": enriched_topics,
     }
 
 
@@ -183,6 +201,16 @@ def refresh_audience_topics(
             "status": "processing",
             "message": "Já existe uma análise em andamento.",
         }
+
+    # Capturar snapshot da analise anterior antes de criar nova
+    try:
+        from app.modules.topic_snapshots.application.use_cases.capture_snapshot_use_case import (
+            CaptureSnapshotUseCase,
+        )
+
+        CaptureSnapshotUseCase(db).execute(audience_id)
+    except Exception:
+        pass  # Nao bloqueia o refresh se snapshot falhar
 
     # Criar nova análise (ignora fingerprint — força reprocessamento)
     community_names = [c.subreddit_name for c in communities]

@@ -52,6 +52,25 @@ class TriggerTopicAnalysisUseCase:
             )
             return
 
+        # Capturar snapshot da analise anterior antes de criar nova
+        try:
+            from app.modules.topic_snapshots.application.use_cases.capture_snapshot_use_case import (
+                CaptureSnapshotUseCase,
+            )
+
+            snapshot_count = CaptureSnapshotUseCase(self.db).execute(audience_id)
+            if snapshot_count > 0:
+                logger.info(
+                    "Captured %d topic snapshots for audience %s before new analysis",
+                    snapshot_count,
+                    audience_id,
+                )
+        except Exception:
+            logger.exception(
+                "Failed to capture topic snapshot for audience %s — continuing with analysis",
+                audience_id,
+            )
+
         # Criar registro de análise com status "processing"
         analysis = self.topic_repo.create_analysis(audience_id, fingerprint)
         logger.info(
