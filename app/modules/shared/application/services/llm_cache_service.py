@@ -15,6 +15,7 @@ class TaskType(str, Enum):
     THEME_SUMMARY = "theme_summary"
     COMMUNITY_CATEGORIZATION = "community_categorization"
     AUDIENCE_EXPANSION = "audience_expansion"
+    TOPIC_QA = "topic_qa"
 
 
 # TTL em horas para cada tipo de task
@@ -24,6 +25,7 @@ TTL_CONFIG = {
     TaskType.THEME_SUMMARY: 24,               # 24 horas
     TaskType.COMMUNITY_CATEGORIZATION: 720,   # 30 dias
     TaskType.AUDIENCE_EXPANSION: 24,          # 24 horas
+    TaskType.TOPIC_QA: 48,                    # 48 horas
 }
 
 
