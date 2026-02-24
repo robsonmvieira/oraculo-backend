@@ -44,6 +44,8 @@ from app.modules.topic_sentiment.domain.entities import topic_sentiment  # noqa:
 from app.modules.topic_behavioral_patterns.domain.entities import topic_behavioral_pattern  # noqa: E402
 from app.modules.topic_snapshots.domain.entities import topic_snapshot  # noqa: E402
 from app.modules.notifications.domain.entities import notification  # noqa: E402
+from app.modules.topic_chat.domain.entities import topic_conversation  # noqa: E402
+from app.modules.topic_chat.domain.entities import topic_conversation_message  # noqa: E402
 
 target_metadata = [Base.metadata]
 
