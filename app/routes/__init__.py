@@ -15,6 +15,7 @@ from app.routes.topic_behavioral_patterns import router as topic_behavioral_patt
 from app.routes.topic_snapshots import router as topic_snapshots_router
 from app.routes.notifications import router as notifications_router
 from app.routes.topic_ask import router as topic_ask_router
+from app.routes.topic_chat import router as topic_chat_router
 
 __all__ = [
     "auth_router",
@@ -32,4 +33,5 @@ __all__ = [
     "topic_snapshots_router",
     "notifications_router",
     "topic_ask_router",
+    "topic_chat_router",
 ]
