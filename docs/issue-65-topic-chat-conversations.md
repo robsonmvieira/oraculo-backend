@@ -287,11 +287,16 @@ Authorization: Bearer <token>
 
 ## Melhorias Futuras
 
+> Todas as melhorias abaixo estao detalhadas e priorizadas no card de backlog: [Issue #67 — feat: melhorias e evolução do Topic Chat](https://github.com/robsonmvieira/oraculo-backend/issues/67).
+
+### Should Have
 - **SSE Streaming:** Retornar resposta token-a-token via Server-Sent Events para UX de chat real-time, aproveitando o padrao SSE ja existente no modulo de notificacoes
-- **Sugestoes de perguntas:** Baseado nos dados do deep dive, sugerir follow-ups relevantes ao usuario apos cada resposta
 - **Contexto expandido:** Incluir dados de sentiment analysis (Issue #59) e patterns (Issue #39) como contexto adicional para respostas mais ricas
+- **Resumo de contexto:** Quando o historico ultrapassar o limite de 40 mensagens, gerar um resumo das mensagens antigas via LLM para manter contexto sem estourar tokens
+
+### Nice to Have
+- **Sugestoes de perguntas:** Baseado nos dados do deep dive, sugerir 2-3 follow-ups relevantes ao usuario apos cada resposta
 - **Titulo inteligente:** Gerar titulo da conversa automaticamente via LLM ao inves de truncar a primeira pergunta
-- **Limite de mensagens por conversa:** Definir um teto (ex: 50 mensagens) e sugerir nova conversa quando atingido
-- **Exportar conversa:** Permitir download do historico em markdown ou PDF
-- **Resumo de contexto:** Quando o historico ultrapassar o limite, gerar um resumo das mensagens antigas para manter contexto sem estourar tokens
 - **Rate limiting:** Limitar numero de mensagens por usuario/conversa por hora
+- **Exportar conversa:** Permitir download do historico em markdown ou PDF
+- **Limite de mensagens por conversa:** Definir um teto (ex: 50 mensagens) e sugerir nova conversa quando atingido
