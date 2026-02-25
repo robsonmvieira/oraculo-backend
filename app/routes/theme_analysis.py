@@ -14,8 +14,14 @@ from app.modules.shared.infra.database.database import get_db
 from app.modules.theme_analysis.application.use_cases.trigger_theme_analysis_use_case import (
     TriggerThemeAnalysisUseCase,
 )
+from app.modules.theme_analysis.application.use_cases.trigger_theme_summary_use_case import (
+    TriggerThemeSummaryUseCase,
+)
 from app.modules.theme_analysis.infra.repositories.theme_analysis_repository import (
     ThemeAnalysisRepository,
+)
+from app.modules.theme_analysis.infra.repositories.theme_summary_repository import (
+    ThemeSummaryRepository,
 )
 
 router = APIRouter(
@@ -162,5 +168,86 @@ def refresh_themes(
         window=window,
         language=current_user.preferred_language,
     )
+
+    return result
+
+
+@router.get("/{audience_id}/themes/{theme_id}/summary")
+def get_theme_summary(
+    audience_id: UUID,
+    theme_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna o sumário narrativo enriquecido de um tema.
+
+    Se não existe sumário, retorna status 'no_summary'.
+    """
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    summary_repo = ThemeSummaryRepository(db)
+    summary = summary_repo.find_by_theme_id(theme_id)
+
+    if not summary:
+        return {
+            "status": "no_summary",
+            "message": "Nenhum sumário encontrado para este tema. Dispare a geração primeiro.",
+        }
+
+    return {
+        "status": "ready",
+        "theme_id": str(summary.theme_id),
+        "narrative": summary.narrative,
+        "highlights": summary.highlights,
+        "emotional_tone": summary.emotional_tone,
+        "tone_description": summary.tone_description,
+        "key_themes": summary.key_themes,
+        "intent_breakdown": summary.intent_breakdown,
+        "week_differentiator": summary.week_differentiator,
+        "created_at": summary.created_at.isoformat() if summary.created_at else None,
+    }
+
+
+@router.post("/{audience_id}/themes/{theme_id}/summary/refresh", status_code=202)
+def refresh_theme_summary(
+    audience_id: UUID,
+    theme_id: UUID,
+    window: str = Query("week", description="Janela temporal: week ou month"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Dispara geração de sumário narrativo enriquecido para um tema.
+    Retorna imediatamente com status 202.
+    """
+    if window not in VALID_WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Janela inválida. Use: {', '.join(VALID_WINDOWS)}",
+        )
+
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    trigger = TriggerThemeSummaryUseCase(db)
+    result = trigger.execute(
+        audience_id=audience_id,
+        theme_id=theme_id,
+        window=window,
+        language=current_user.preferred_language,
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
 
     return result

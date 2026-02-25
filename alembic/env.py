@@ -48,6 +48,7 @@ from app.modules.topic_chat.domain.entities import topic_conversation  # noqa: E
 from app.modules.topic_chat.domain.entities import topic_conversation_message  # noqa: E402
 from app.modules.theme_analysis.domain.entities import theme  # noqa: E402
 from app.modules.intent_classification.domain.entities import intent_classification  # noqa: E402
+from app.modules.theme_analysis.domain.entities import theme_summary  # noqa: E402
 
 target_metadata = [Base.metadata]
 
