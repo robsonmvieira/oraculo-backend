@@ -23,6 +23,7 @@ _TYPE_LABELS = {
     "behavioral_pattern": "Behavioral Patterns",
     "theme_analysis": "Theme Analysis",
     "intent_classification": "Intent Classification",
+    "theme_summary": "Theme Summary",
 }
 
 
