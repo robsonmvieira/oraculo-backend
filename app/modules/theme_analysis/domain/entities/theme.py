@@ -38,9 +38,7 @@ class ThemeAnalysis(Base):
     status = Column(
         String(20), nullable=False, default="processing", index=True
     )  # processing, ready, failed
-    time_window = Column(
-        String(10), nullable=False, index=True
-    )  # week, month
+    time_window = Column(String(10), nullable=False, index=True)  # week, month
     period_start = Column(Date, nullable=True)
     period_end = Column(Date, nullable=True)
     communities_fingerprint = Column(String(64), nullable=False, index=True)
@@ -58,6 +56,11 @@ class ThemeAnalysis(Base):
 
     themes = relationship(
         "Theme",
+        back_populates="analysis",
+        cascade="all, delete-orphan",
+    )
+    posts = relationship(
+        "ThemePost",
         back_populates="analysis",
         cascade="all, delete-orphan",
     )
@@ -81,12 +84,43 @@ class Theme(Base):
     avg_score = Column(Float, nullable=True)
     avg_comments = Column(Float, nullable=True)
     engagement_score = Column(Float, nullable=True)
-    top_subreddits = Column(JSON, nullable=True)  # [{"name": "sub", "post_count": N, "avg_score": N}]
+    top_subreddits = Column(
+        JSON, nullable=True
+    )  # [{"name": "sub", "post_count": N, "avg_score": N}]
     top_keywords = Column(JSON, nullable=True)  # [{"keyword": "...", "frequency": N}]
-    representative_posts = Column(JSON, nullable=True)  # [{"title": "...", "subreddit": "...", "score": N, "permalink": "..."}]
+    representative_posts = Column(
+        JSON, nullable=True
+    )  # [{"title": "...", "subreddit": "...", "score": N, "permalink": "..."}]
     rank = Column(Integer, nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     analysis = relationship("ThemeAnalysis", back_populates="themes")
+
+
+class ThemePost(Base):
+    """Post do Reddit coletado durante uma análise temporal de temas."""
+
+    __tablename__ = "theme_posts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    analysis_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("theme_analyses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    post_reddit_id = Column(String(20), nullable=False)
+    subreddit = Column(String(100), nullable=False)
+    title = Column(String(500), nullable=False)
+    selftext = Column(Text, nullable=True)
+    score = Column(Integer, nullable=True)
+    num_comments = Column(Integer, nullable=True)
+    created_utc = Column(Float, nullable=True)
+    permalink = Column(String(500), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    analysis = relationship("ThemeAnalysis", back_populates="posts")

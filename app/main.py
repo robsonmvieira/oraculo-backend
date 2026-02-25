@@ -21,6 +21,7 @@ from app.routes import (
     topic_sentiment_router,
     topic_ask_router,
     theme_analysis_router,
+    intent_classification_router,
     topic_chat_router,
     topic_snapshots_router,
     topics_router,
@@ -56,6 +57,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         body["traceback"] = traceback.format_exception(exc)
     return JSONResponse(status_code=500, content=body)
 
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
@@ -88,6 +90,7 @@ app.include_router(notifications_router)
 app.include_router(topic_ask_router)
 app.include_router(topic_chat_router)
 app.include_router(theme_analysis_router)
+app.include_router(intent_classification_router)
 
 
 @app.get("/")

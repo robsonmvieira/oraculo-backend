@@ -67,16 +67,18 @@ class ExtractThemesUseCase:
                         limit=50,
                     )
                     for post in result.posts:
-                        all_raw_posts.append({
-                            "id": post.id,
-                            "subreddit": post.subreddit,
-                            "title": post.title,
-                            "selftext": post.selftext,
-                            "score": post.score,
-                            "num_comments": post.num_comments,
-                            "created_utc": post.created_utc,
-                            "permalink": post.permalink or "",
-                        })
+                        all_raw_posts.append(
+                            {
+                                "id": post.id,
+                                "subreddit": post.subreddit,
+                                "title": post.title,
+                                "selftext": post.selftext,
+                                "score": post.score,
+                                "num_comments": post.num_comments,
+                                "created_utc": post.created_utc,
+                                "permalink": post.permalink or "",
+                            }
+                        )
             elif window == "month":
                 # Top do mês para capturar melhor conteúdo
                 result = self.reddit_provider.get_subreddit_posts(
@@ -86,16 +88,18 @@ class ExtractThemesUseCase:
                     time_filter="month",
                 )
                 for post in result.posts:
-                    all_raw_posts.append({
-                        "id": post.id,
-                        "subreddit": post.subreddit,
-                        "title": post.title,
-                        "selftext": post.selftext,
-                        "score": post.score,
-                        "num_comments": post.num_comments,
-                        "created_utc": post.created_utc,
-                        "permalink": post.permalink or "",
-                    })
+                    all_raw_posts.append(
+                        {
+                            "id": post.id,
+                            "subreddit": post.subreddit,
+                            "title": post.title,
+                            "selftext": post.selftext,
+                            "score": post.score,
+                            "num_comments": post.num_comments,
+                            "created_utc": post.created_utc,
+                            "permalink": post.permalink or "",
+                        }
+                    )
 
         # Filtrar por janela temporal
         filtered = _filter_posts_by_window(all_raw_posts, window)
@@ -176,23 +180,29 @@ class ExtractThemesUseCase:
                 window,
             )
 
+            # 1.5 Salvar posts coletados para reutilização por outros módulos
+            self.theme_repo.save_posts(analysis_id, posts)
+            logger.info("Saved %d posts for analysis %s", len(posts), analysis_id)
+
             # 2. Calcular período
             period_start, period_end = ThemeAnalysisRepository.get_period_bounds(window)
 
             # 3. Rodar agente de extração
             agent = create_theme_extraction_agent()
-            result = agent.invoke({
-                "audience_name": audience.name,
-                "audience_description": audience.description,
-                "community_names": community_names,
-                "posts": posts,
-                "total_posts": len(posts),
-                "time_window": window,
-                "period_start": str(period_start),
-                "period_end": str(period_end),
-                "language": language,
-                "extracted_themes": [],
-            })
+            result = agent.invoke(
+                {
+                    "audience_name": audience.name,
+                    "audience_description": audience.description,
+                    "community_names": community_names,
+                    "posts": posts,
+                    "total_posts": len(posts),
+                    "time_window": window,
+                    "period_start": str(period_start),
+                    "period_end": str(period_end),
+                    "language": language,
+                    "extracted_themes": [],
+                }
+            )
 
             extracted = result.get("extracted_themes", [])
 

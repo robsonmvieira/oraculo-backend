@@ -23,7 +23,9 @@ class ExtractedTheme(TypedDict):
     engagement_score: float | None
     top_subreddits: list[dict]  # [{"name": "sub", "post_count": N, "avg_score": N}]
     top_keywords: list[dict]  # [{"keyword": "...", "frequency": N}]
-    representative_posts: list[dict]  # [{"title": "...", "subreddit": "...", "score": N, "permalink": "..."}]
+    representative_posts: list[
+        dict
+    ]  # [{"title": "...", "subreddit": "...", "score": N, "permalink": "..."}]
     rank: int | None
 
 

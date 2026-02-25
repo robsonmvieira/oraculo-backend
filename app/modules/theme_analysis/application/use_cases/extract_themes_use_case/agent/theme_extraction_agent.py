@@ -120,8 +120,7 @@ def extract_themes(state: ThemeExtractionState) -> dict:
             engagement_score=_calculate_engagement_score(raw),
             top_subreddits=raw.get("top_subreddits", []),
             top_keywords=[
-                {"keyword": kw, "frequency": 0}
-                for kw in raw.get("keywords", [])
+                {"keyword": kw, "frequency": 0} for kw in raw.get("keywords", [])
             ],
             representative_posts=raw.get("representative_posts", []),
             rank=rank,
@@ -179,7 +178,9 @@ def generate_summary(state: ThemeExtractionState) -> dict:
         return {"extracted_themes": themes}
 
     # Mapear resumos aos temas por nome
-    summary_map = {s["theme_name"]: s["summary"] for s in summaries if "theme_name" in s}
+    summary_map = {
+        s["theme_name"]: s["summary"] for s in summaries if "theme_name" in s
+    }
     for theme in themes:
         theme["summary"] = summary_map.get(theme["name"])
 
