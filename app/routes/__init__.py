@@ -16,6 +16,7 @@ from app.routes.topic_snapshots import router as topic_snapshots_router
 from app.routes.notifications import router as notifications_router
 from app.routes.topic_ask import router as topic_ask_router
 from app.routes.topic_chat import router as topic_chat_router
+from app.routes.theme_analysis import router as theme_analysis_router
 
 __all__ = [
     "auth_router",
@@ -34,4 +35,5 @@ __all__ = [
     "notifications_router",
     "topic_ask_router",
     "topic_chat_router",
+    "theme_analysis_router",
 ]

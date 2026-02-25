@@ -20,6 +20,7 @@ from app.routes import (
     topic_patterns_router,
     topic_sentiment_router,
     topic_ask_router,
+    theme_analysis_router,
     topic_chat_router,
     topic_snapshots_router,
     topics_router,
@@ -86,6 +87,7 @@ app.include_router(topic_snapshots_router)
 app.include_router(notifications_router)
 app.include_router(topic_ask_router)
 app.include_router(topic_chat_router)
+app.include_router(theme_analysis_router)
 
 
 @app.get("/")
