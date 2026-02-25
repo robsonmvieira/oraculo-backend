@@ -17,8 +17,14 @@ from app.modules.theme_analysis.application.use_cases.trigger_theme_analysis_use
 from app.modules.theme_analysis.application.use_cases.trigger_theme_summary_use_case import (
     TriggerThemeSummaryUseCase,
 )
+from app.modules.theme_analysis.application.use_cases.trigger_theme_panel_use_case import (
+    TriggerThemePanelUseCase,
+)
 from app.modules.theme_analysis.infra.repositories.theme_analysis_repository import (
     ThemeAnalysisRepository,
+)
+from app.modules.theme_analysis.infra.repositories.theme_panel_repository import (
+    ThemePanelRepository,
 )
 from app.modules.theme_analysis.infra.repositories.theme_summary_repository import (
     ThemeSummaryRepository,
@@ -31,6 +37,7 @@ router = APIRouter(
 
 AUDIENCE_NOT_FOUND = "Audiência não encontrada"
 VALID_WINDOWS = ("week", "month")
+WINDOW_QUERY_DESC = "Janela temporal: week ou month"
 
 
 def _check_ownership(audience, current_user: User) -> None:
@@ -42,8 +49,10 @@ def _check_ownership(audience, current_user: User) -> None:
 @router.get("/{audience_id}/themes")
 def list_themes(
     audience_id: UUID,
-    window: str = Query("week", description="Janela temporal: week ou month"),
-    sort_by: str = Query("rank", description="Ordenação: rank, engagement, post_count, name"),
+    window: str = Query("week", description=WINDOW_QUERY_DESC),
+    sort_by: str = Query(
+        "rank", description="Ordenação: rank, engagement, post_count, name"
+    ),
     limit: int = 50,
     offset: int = 0,
     current_user: User = Depends(get_current_user),
@@ -110,7 +119,9 @@ def list_themes(
         "time_window": latest.time_window,
         "period_start": str(latest.period_start) if latest.period_start else None,
         "period_end": str(latest.period_end) if latest.period_end else None,
-        "completed_at": latest.completed_at.isoformat() if latest.completed_at else None,
+        "completed_at": latest.completed_at.isoformat()
+        if latest.completed_at
+        else None,
         "total_themes": latest.total_themes,
         "themes": [
             {
@@ -134,7 +145,7 @@ def list_themes(
 @router.post("/{audience_id}/themes/refresh", status_code=202)
 def refresh_themes(
     audience_id: UUID,
-    window: str = Query("week", description="Janela temporal: week ou month"),
+    window: str = Query("week", description=WINDOW_QUERY_DESC),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -218,7 +229,7 @@ def get_theme_summary(
 def refresh_theme_summary(
     audience_id: UUID,
     theme_id: UUID,
-    window: str = Query("week", description="Janela temporal: week ou month"),
+    window: str = Query("week", description=WINDOW_QUERY_DESC),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -251,3 +262,198 @@ def refresh_theme_summary(
         raise HTTPException(status_code=400, detail=result["message"])
 
     return result
+
+
+@router.get("/{audience_id}/themes/{theme_id}/panel")
+def get_theme_panel(
+    audience_id: UUID,
+    theme_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna os dados estruturados do painel de um tema.
+
+    Inclui subcategorias, tópicos relacionados e distribuição de subreddits.
+    Se não existe painel, retorna status 'no_panel'.
+    """
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    panel_repo = ThemePanelRepository(db)
+    panel = panel_repo.find_by_theme_id(theme_id)
+
+    if not panel:
+        return {
+            "status": "no_panel",
+            "message": "Nenhum painel encontrado para este tema. Dispare a geração primeiro.",
+        }
+
+    return {
+        "status": "ready",
+        "theme_id": str(panel.theme_id),
+        "subcategories": {
+            "total": len(panel.subcategories) if panel.subcategories else 0,
+            "items": panel.subcategories or [],
+        },
+        "related_topics": {
+            "total": len(panel.related_topics) if panel.related_topics else 0,
+            "items": panel.related_topics or [],
+        },
+        "subreddit_distribution": {
+            "total": len(panel.subreddit_distribution)
+            if panel.subreddit_distribution
+            else 0,
+            "items": panel.subreddit_distribution or [],
+        },
+        "actions": panel.action_links or {},
+        "created_at": panel.created_at.isoformat() if panel.created_at else None,
+    }
+
+
+@router.post("/{audience_id}/themes/{theme_id}/panel/refresh", status_code=202)
+def refresh_theme_panel(
+    audience_id: UUID,
+    theme_id: UUID,
+    window: str = Query("week", description=WINDOW_QUERY_DESC),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Dispara geração de dados estruturados do painel para um tema.
+    Retorna imediatamente com status 202.
+    """
+    if window not in VALID_WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Janela inválida. Use: {', '.join(VALID_WINDOWS)}",
+        )
+
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    trigger = TriggerThemePanelUseCase(db)
+    result = trigger.execute(
+        audience_id=audience_id,
+        theme_id=theme_id,
+        window=window,
+        language=current_user.preferred_language,
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
+
+
+def _build_default_actions(audience_id: UUID, theme_id: UUID) -> dict:
+    """Monta action links padrão quando não há painel salvo."""
+    return {
+        "view_all": f"/audiences/{audience_id}/topics?theme_filter={theme_id}",
+        "patterns": f"/audiences/{audience_id}/patterns",
+        "ask": f"/audiences/{audience_id}/topics/ask",
+        "copy_summary": True,
+    }
+
+
+def _serialize_summary(summary) -> dict:
+    """Serializa sumário narrativo para resposta da API."""
+    if not summary:
+        return {"status": "no_summary"}
+    return {
+        "status": "ready",
+        "narrative": summary.narrative,
+        "emotional_tone": summary.emotional_tone,
+        "tone_description": summary.tone_description,
+        "highlights": summary.highlights,
+        "key_themes": summary.key_themes,
+        "intent_breakdown": summary.intent_breakdown,
+        "week_differentiator": summary.week_differentiator,
+    }
+
+
+def _serialize_panel(panel) -> dict:
+    """Serializa painel de dados estruturados para resposta da API."""
+    if not panel:
+        return {"status": "no_panel"}
+    return {
+        "status": "ready",
+        "subcategories": panel.subcategories,
+        "related_topics": panel.related_topics,
+        "subreddit_distribution": panel.subreddit_distribution,
+    }
+
+
+def _find_ready_analysis(theme_repo, audience_id: UUID):
+    """Busca análise de temas ready, tentando week e depois month."""
+    for window in VALID_WINDOWS:
+        analysis = theme_repo.find_latest_by_audience_and_window(audience_id, window)
+        if analysis and analysis.status == "ready":
+            return analysis
+    return None
+
+
+@router.get("/{audience_id}/themes/{theme_id}/full")
+def get_theme_full(
+    audience_id: UUID,
+    theme_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna dados completos de um tema: metadados + sumário + painel.
+
+    Endpoint combinado para o frontend carregar o painel direito em um único request.
+    """
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    theme_repo = ThemeAnalysisRepository(db)
+    latest = _find_ready_analysis(theme_repo, audience_id)
+    if not latest:
+        raise HTTPException(
+            status_code=404,
+            detail="Nenhuma análise de temas encontrada.",
+        )
+
+    themes = theme_repo.get_themes(analysis_id=latest.id)
+    theme = next((t for t in themes if str(t.id) == str(theme_id)), None)
+    if not theme:
+        raise HTTPException(status_code=404, detail="Tema não encontrado.")
+
+    summary = ThemeSummaryRepository(db).find_by_theme_id(theme_id)
+    panel = ThemePanelRepository(db).find_by_theme_id(theme_id)
+
+    return {
+        "theme": {
+            "id": str(theme.id),
+            "name": theme.name,
+            "summary": theme.summary,
+            "time_window": latest.time_window,
+            "period_start": str(latest.period_start) if latest.period_start else None,
+            "period_end": str(latest.period_end) if latest.period_end else None,
+            "post_count": theme.post_count,
+            "avg_score": theme.avg_score,
+            "avg_comments": theme.avg_comments,
+            "engagement_score": theme.engagement_score,
+            "top_keywords": theme.top_keywords,
+            "rank": theme.rank,
+        },
+        "summary": _serialize_summary(summary),
+        "panel": _serialize_panel(panel),
+        "actions": panel.action_links
+        if panel
+        else _build_default_actions(audience_id, theme_id),
+    }
