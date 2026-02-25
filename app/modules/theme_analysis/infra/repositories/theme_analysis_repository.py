@@ -6,7 +6,11 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.modules.theme_analysis.domain.entities.theme import Theme, ThemeAnalysis
+from app.modules.theme_analysis.domain.entities.theme import (
+    Theme,
+    ThemeAnalysis,
+    ThemePost,
+)
 
 
 class ThemeAnalysisRepository:
@@ -101,14 +105,10 @@ class ThemeAnalysisRepository:
         self.db.refresh(analysis)
         return analysis
 
-    def mark_ready(
-        self, analysis_id: UUID, total_themes: int
-    ) -> ThemeAnalysis | None:
+    def mark_ready(self, analysis_id: UUID, total_themes: int) -> ThemeAnalysis | None:
         """Marca análise como pronta."""
         analysis = (
-            self.db.query(ThemeAnalysis)
-            .filter(ThemeAnalysis.id == analysis_id)
-            .first()
+            self.db.query(ThemeAnalysis).filter(ThemeAnalysis.id == analysis_id).first()
         )
         if not analysis:
             return None
@@ -125,9 +125,7 @@ class ThemeAnalysisRepository:
     ) -> ThemeAnalysis | None:
         """Marca análise como falha."""
         analysis = (
-            self.db.query(ThemeAnalysis)
-            .filter(ThemeAnalysis.id == analysis_id)
-            .first()
+            self.db.query(ThemeAnalysis).filter(ThemeAnalysis.id == analysis_id).first()
         )
         if not analysis:
             return None
@@ -139,9 +137,7 @@ class ThemeAnalysisRepository:
         self.db.refresh(analysis)
         return analysis
 
-    def save_themes(
-        self, analysis_id: UUID, themes: list[dict]
-    ) -> list[Theme]:
+    def save_themes(self, analysis_id: UUID, themes: list[dict]) -> list[Theme]:
         """Salva lista de temas extraídos."""
         entities = []
         for theme_data in themes:
@@ -172,9 +168,7 @@ class ThemeAnalysisRepository:
         offset: int = 0,
     ) -> list[Theme]:
         """Lista temas de uma análise com ordenação."""
-        query = self.db.query(Theme).filter(
-            Theme.analysis_id == analysis_id
-        )
+        query = self.db.query(Theme).filter(Theme.analysis_id == analysis_id)
 
         if sort_by == "engagement":
             query = query.order_by(Theme.engagement_score.desc().nullslast())
@@ -186,6 +180,30 @@ class ThemeAnalysisRepository:
             query = query.order_by(Theme.rank.asc().nullslast())
 
         return query.offset(offset).limit(limit).all()
+
+    def save_posts(self, analysis_id: UUID, posts: list) -> int:
+        """Salva posts coletados do Reddit vinculados à análise."""
+        for post_data in posts:
+            post = ThemePost(
+                analysis_id=analysis_id,
+                post_reddit_id=post_data["id"],
+                subreddit=post_data["subreddit"],
+                title=post_data["title"],
+                selftext=post_data.get("selftext"),
+                score=post_data.get("score"),
+                num_comments=post_data.get("num_comments"),
+                created_utc=post_data.get("created_utc"),
+                permalink=post_data.get("permalink", ""),
+            )
+            self.db.add(post)
+        self.db.commit()
+        return len(posts)
+
+    def get_posts(self, analysis_id: UUID) -> list[ThemePost]:
+        """Retorna todos os posts coletados de uma análise."""
+        return (
+            self.db.query(ThemePost).filter(ThemePost.analysis_id == analysis_id).all()
+        )
 
     def delete_old_analyses(
         self, audience_id: UUID, window: str, keep_latest: int = 2
