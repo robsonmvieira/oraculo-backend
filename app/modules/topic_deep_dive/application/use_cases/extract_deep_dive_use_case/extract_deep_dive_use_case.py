@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.topic_deep_dive.application.use_cases.extract_deep_dive_use_case.agent.deep_dive_agent import (
     create_deep_dive_agent,
+    _get_limits as _get_deep_dive_limits,
 )
 from app.modules.topic_deep_dive.application.use_cases.extract_deep_dive_use_case.agent.state import (
     PostWithComments,
@@ -25,10 +26,6 @@ from app.modules.topics.infra.providers.reddit_provider.generic_reddit_provider 
 )
 
 logger = logging.getLogger(__name__)
-
-# Number of top posts to fetch comments for
-TOP_POSTS_FOR_COMMENTS = 10
-COMMENTS_PER_POST = 20
 
 
 class ExtractDeepDiveUseCase:
@@ -125,12 +122,13 @@ class ExtractDeepDiveUseCase:
             )
 
             # 4. Buscar comentários dos top posts
+            limits = _get_deep_dive_limits()
             posts_with_comments: list[PostWithComments] = []
             for i, post in enumerate(relevant_posts):
                 comments = []
-                if i < TOP_POSTS_FOR_COMMENTS:
+                if i < limits.top_posts_for_comments:
                     raw_comments = self.reddit_provider.get_post_comments(
-                        post.subreddit, post.id, limit=COMMENTS_PER_POST
+                        post.subreddit, post.id, limit=limits.comments_per_post_fetch
                     )
                     comments = [
                         {

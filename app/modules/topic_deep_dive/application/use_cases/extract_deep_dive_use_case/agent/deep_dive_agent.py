@@ -2,9 +2,13 @@ import json
 import logging
 import os
 
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
+from app.modules.shared.application.services.llm_factory import (
+    ContextLimits,
+    create_llm,
+    get_context_limits,
+)
 from app.modules.topic_deep_dive.application.use_cases.extract_deep_dive_use_case.agent.prompts.deep_dive_prompts import (
     deep_dive_analysis_prompt,
     select_representative_posts_prompt,
@@ -16,20 +20,42 @@ from app.modules.topic_deep_dive.application.use_cases.extract_deep_dive_use_cas
 
 logger = logging.getLogger(__name__)
 
-MAX_POSTS_CHARS = 100_000  # Higher limit since we include comments
-MAX_COMMENT_LENGTH = 500
+_MODEL_ENV = "DEEP_DIVE_MODEL_NAME"
+_MODEL_FALLBACK_ENV = "MODEL_NAME"
+_DEFAULT_MODEL = "gpt-5-nano-2025-08-07"
+
+_OPENAI_OVERRIDES = {
+    "max_posts_chars": 100_000,
+    "max_comment_length": 500,
+    "comments_per_post": 5,
+    "max_selftext_length": 600,
+    "top_posts_for_comments": 10,
+    "comments_per_post_fetch": 20,
+}
 
 
-def _get_llm() -> ChatOpenAI:
-    return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
-        temperature=0,
+def _resolve_model_env() -> str:
+    """Return the model name using the dedicated env var with fallback."""
+    return os.getenv(_MODEL_ENV) or os.getenv(_MODEL_FALLBACK_ENV, _DEFAULT_MODEL)
+
+
+def _get_llm():
+    model = _resolve_model_env()
+    return create_llm(model_env_var=_MODEL_ENV, default_model=model, temperature=0)
+
+
+def _get_limits() -> ContextLimits:
+    model = _resolve_model_env()
+    return get_context_limits(
+        model_env_var=_MODEL_ENV,
+        default_model=model,
+        openai_overrides=_OPENAI_OVERRIDES,
     )
 
 
 def _build_posts_with_comments_text(
     posts: list[PostWithComments],
-    max_chars: int = MAX_POSTS_CHARS,
+    limits: ContextLimits,
 ) -> str:
     """Builds a text block from posts with their comments."""
     lines = []
@@ -43,8 +69,8 @@ def _build_posts_with_comments_text(
         num_comments = post.get("num_comments", 0)
 
         # Truncate long selftext
-        if len(selftext) > 600:
-            selftext = selftext[:600] + "..."
+        if len(selftext) > limits.max_selftext_length:
+            selftext = selftext[:limits.max_selftext_length] + "..."
 
         line = f"[r/{subreddit}] (score: {score}, comments: {num_comments}) {title}"
         if selftext:
@@ -54,15 +80,15 @@ def _build_posts_with_comments_text(
         comments = post.get("comments", [])
         if comments:
             line += "\n  --- Comments ---"
-            for comment in comments[:5]:  # Top 5 comments per post
+            for comment in comments[:limits.comments_per_post]:
                 body = comment.get("body", "").strip()
-                if len(body) > MAX_COMMENT_LENGTH:
-                    body = body[:MAX_COMMENT_LENGTH] + "..."
+                if len(body) > limits.max_comment_length:
+                    body = body[:limits.max_comment_length] + "..."
                 c_score = comment.get("score", 0)
                 author = comment.get("author", "anonymous")
                 line += f"\n  [{author}, score:{c_score}] {body}"
 
-        if total_chars + len(line) > max_chars:
+        if total_chars + len(line) > limits.max_posts_chars:
             break
 
         lines.append(line)
@@ -102,7 +128,8 @@ def analyze_deep_dive(state: DeepDiveState) -> dict:
     if not posts:
         return {"deep_dive_result": None}
 
-    posts_text = _build_posts_with_comments_text(posts)
+    limits = _get_limits()
+    posts_text = _build_posts_with_comments_text(posts, limits)
     total_comments = sum(len(p.get("comments", [])) for p in posts)
 
     llm = _get_llm()
