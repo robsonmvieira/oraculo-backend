@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.topic_behavioral_patterns.application.use_cases.detect_behavioral_patterns_use_case.agent.behavioral_pattern_agent import (
     create_behavioral_pattern_agent,
+    _get_limits as _get_behavioral_limits,
 )
 from app.modules.topic_behavioral_patterns.application.use_cases.detect_behavioral_patterns_use_case.agent.state import (
     PostWithComments,
@@ -25,9 +26,6 @@ from app.modules.topics.infra.providers.reddit_provider.generic_reddit_provider 
 )
 
 logger = logging.getLogger(__name__)
-
-TOP_POSTS_FOR_COMMENTS = 15
-COMMENTS_PER_POST = 35
 
 
 class DetectBehavioralPatternsUseCase:
@@ -120,12 +118,13 @@ class DetectBehavioralPatternsUseCase:
             )
 
             # 4. Buscar comentários dos top posts (mais comments que deep-dive)
+            limits = _get_behavioral_limits()
             posts_with_comments: list[PostWithComments] = []
             for i, post in enumerate(relevant_posts):
                 comments = []
-                if i < TOP_POSTS_FOR_COMMENTS:
+                if i < limits.top_posts_for_comments:
                     raw_comments = self.reddit_provider.get_post_comments(
-                        post.subreddit, post.id, limit=COMMENTS_PER_POST
+                        post.subreddit, post.id, limit=limits.comments_per_post_fetch
                     )
                     comments = [
                         {

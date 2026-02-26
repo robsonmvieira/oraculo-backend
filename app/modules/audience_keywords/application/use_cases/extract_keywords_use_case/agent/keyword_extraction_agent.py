@@ -19,7 +19,7 @@ VALID_CATEGORIES = {"pain_point", "question", "recommendation", "trend", "genera
 
 def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0.3,
     )
 
@@ -80,7 +80,9 @@ def extract_keywords(state: KeywordExtractionState) -> dict:
     for i, kw in enumerate(keywords):
         kw["rank"] = i + 1
 
-    logger.info("Extracted %d keywords for audience '%s'", len(keywords), state["audience_name"])
+    logger.info(
+        "Extracted %d keywords for audience '%s'", len(keywords), state["audience_name"]
+    )
     return {"extracted_keywords": keywords}
 
 

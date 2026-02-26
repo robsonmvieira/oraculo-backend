@@ -2,9 +2,13 @@ import json
 import logging
 import os
 
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
+from app.modules.shared.application.services.llm_factory import (
+    ContextLimits,
+    create_llm,
+    get_context_limits,
+)
 from app.modules.topic_patterns.application.use_cases.detect_patterns_use_case.agent.prompts.pattern_detection_prompts import (
     pattern_detection_prompt,
 )
@@ -16,14 +20,36 @@ from app.modules.topic_patterns.application.use_cases.detect_patterns_use_case.a
 
 logger = logging.getLogger(__name__)
 
-MAX_POSTS_CHARS = 120_000  # Higher limit — cross-topic needs more context
-MAX_COMMENT_LENGTH = 500
+_MODEL_ENV = "PATTERN_DETECTION_MODEL_NAME"
+_MODEL_FALLBACK_ENV = "MODEL_NAME"
+_DEFAULT_MODEL = "gpt-5-nano-2025-08-07"
+
+_OPENAI_OVERRIDES = {
+    "max_posts_chars": 120_000,
+    "max_comment_length": 500,
+    "comments_per_post": 5,
+    "max_selftext_length": 600,
+    "top_posts_for_comments": 10,
+    "comments_per_post_fetch": 20,
+}
 
 
-def _get_llm() -> ChatOpenAI:
-    return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
-        temperature=0,
+def _resolve_model_env() -> str:
+    """Return the model name using the dedicated env var with fallback."""
+    return os.getenv(_MODEL_ENV) or os.getenv(_MODEL_FALLBACK_ENV, _DEFAULT_MODEL)
+
+
+def _get_llm():
+    model = _resolve_model_env()
+    return create_llm(model_env_var=_MODEL_ENV, default_model=model, temperature=0)
+
+
+def _get_limits() -> ContextLimits:
+    model = _resolve_model_env()
+    return get_context_limits(
+        model_env_var=_MODEL_ENV,
+        default_model=model,
+        openai_overrides=_OPENAI_OVERRIDES,
     )
 
 
@@ -46,7 +72,7 @@ def _build_topics_text(topics: list[TopicSummary]) -> str:
 
 def _build_posts_with_comments_text(
     posts: list[PostWithComments],
-    max_chars: int = MAX_POSTS_CHARS,
+    limits: ContextLimits,
 ) -> str:
     """Builds a text block from posts with their comments."""
     lines = []
@@ -59,8 +85,8 @@ def _build_posts_with_comments_text(
         score = post.get("score", 0)
         num_comments = post.get("num_comments", 0)
 
-        if len(selftext) > 600:
-            selftext = selftext[:600] + "..."
+        if len(selftext) > limits.max_selftext_length:
+            selftext = selftext[:limits.max_selftext_length] + "..."
 
         line = f"[r/{subreddit}] (score: {score}, comments: {num_comments}) {title}"
         if selftext:
@@ -69,15 +95,15 @@ def _build_posts_with_comments_text(
         comments = post.get("comments", [])
         if comments:
             line += "\n  --- Comments ---"
-            for comment in comments[:5]:
+            for comment in comments[:limits.comments_per_post]:
                 body = comment.get("body", "").strip()
-                if len(body) > MAX_COMMENT_LENGTH:
-                    body = body[:MAX_COMMENT_LENGTH] + "..."
+                if len(body) > limits.max_comment_length:
+                    body = body[:limits.max_comment_length] + "..."
                 c_score = comment.get("score", 0)
                 author = comment.get("author", "anonymous")
                 line += f"\n  [{author}, score:{c_score}] {body}"
 
-        if total_chars + len(line) > max_chars:
+        if total_chars + len(line) > limits.max_posts_chars:
             break
 
         lines.append(line)
@@ -117,8 +143,9 @@ def detect_patterns(state: PatternDetectionState) -> dict:
     if not topics:
         return {"pattern_result": None}
 
+    limits = _get_limits()
     topics_text = _build_topics_text(topics)
-    posts_text = _build_posts_with_comments_text(posts)
+    posts_text = _build_posts_with_comments_text(posts, limits)
     total_comments = sum(len(p.get("comments", [])) for p in posts)
 
     llm = _get_llm()
@@ -145,7 +172,9 @@ def detect_patterns(state: PatternDetectionState) -> dict:
     try:
         result = json.loads(content)
     except json.JSONDecodeError:
-        logger.error("Failed to parse pattern detection JSON response: %s", content[:500])
+        logger.error(
+            "Failed to parse pattern detection JSON response: %s", content[:500]
+        )
         return {"pattern_result": None}
 
     logger.info(

@@ -55,7 +55,7 @@ class GenerateAudienceTemplateUseCase:
         self.repository = AudienceTemplateRepository(db)
         self.reddit_provider = reddit_provider or GenericRedditProvider()
         self.llm = ChatOpenAI(
-            model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+            model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
             temperature=0,
         )
 

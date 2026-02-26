@@ -16,16 +16,16 @@ O sistema combina dados do Reddit, busca semântica com embeddings e geração p
 
 ## Tech Stack
 
-| Camada | Tecnologia |
-|--------|------------|
-| Framework | FastAPI 0.129+ |
-| ORM | SQLAlchemy 2.0+ |
-| Banco | PostgreSQL + pgvector |
-| Migrations | Alembic |
-| Cache | Redis 5.0 |
-| IA/LLM | LangChain + OpenAI (GPT-4o-mini) |
-| Embeddings | OpenAI text-embedding-3-small |
-| Package Manager | UV |
+| Camada          | Tecnologia                                 |
+| --------------- | ------------------------------------------ |
+| Framework       | FastAPI 0.129+                             |
+| ORM             | SQLAlchemy 2.0+                            |
+| Banco           | PostgreSQL + pgvector                      |
+| Migrations      | Alembic                                    |
+| Cache           | Redis 5.0                                  |
+| IA/LLM          | LangChain + OpenAI (gpt-5-nano-2025-08-07) |
+| Embeddings      | OpenAI text-embedding-3-small              |
+| Package Manager | UV                                         |
 
 ## Arquitetura
 
@@ -72,38 +72,38 @@ scripts/
 
 ### Communities
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/communities/browse` | Browse com filtros (sort, category, search, paginação) |
-| GET | `/communities/categories` | Lista categorias disponíveis |
-| GET | `/communities/search/{name}` | Busca comunidade no Reddit por nome |
-| GET | `/communities/{name}/details` | Detalhes de uma comunidade |
-| GET | `/communities/{name}/related` | Comunidades relacionadas |
+| Método | Endpoint                      | Descrição                                              |
+| ------ | ----------------------------- | ------------------------------------------------------ |
+| GET    | `/communities/browse`         | Browse com filtros (sort, category, search, paginação) |
+| GET    | `/communities/categories`     | Lista categorias disponíveis                           |
+| GET    | `/communities/search/{name}`  | Busca comunidade no Reddit por nome                    |
+| GET    | `/communities/{name}/details` | Detalhes de uma comunidade                             |
+| GET    | `/communities/{name}/related` | Comunidades relacionadas                               |
 
 ### Audiences
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/audiences` | Lista audiências do usuário |
-| POST | `/audiences` | Cria nova audiência |
-| GET | `/audiences/{id}` | Detalhes de uma audiência |
-| PUT | `/audiences/{id}` | Atualiza audiência |
-| DELETE | `/audiences/{id}` | Remove audiência |
+| Método | Endpoint          | Descrição                   |
+| ------ | ----------------- | --------------------------- |
+| GET    | `/audiences`      | Lista audiências do usuário |
+| POST   | `/audiences`      | Cria nova audiência         |
+| GET    | `/audiences/{id}` | Detalhes de uma audiência   |
+| PUT    | `/audiences/{id}` | Atualiza audiência          |
+| DELETE | `/audiences/{id}` | Remove audiência            |
 
 ### Audience Templates
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/audience-templates` | Lista templates disponíveis |
-| POST | `/audience-templates/generate` | Gera template via IA |
-| GET | `/audience-templates/{id}` | Detalhes de um template |
+| Método | Endpoint                       | Descrição                   |
+| ------ | ------------------------------ | --------------------------- |
+| GET    | `/audience-templates`          | Lista templates disponíveis |
+| POST   | `/audience-templates/generate` | Gera template via IA        |
+| GET    | `/audience-templates/{id}`     | Detalhes de um template     |
 
 ### Similar Communities
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/similar-communities/{name}` | Busca similares via embeddings |
-| POST | `/similar-communities/feedback` | Envia feedback de relevância |
+| Método | Endpoint                        | Descrição                      |
+| ------ | ------------------------------- | ------------------------------ |
+| GET    | `/similar-communities/{name}`   | Busca similares via embeddings |
+| POST   | `/similar-communities/feedback` | Envia feedback de relevância   |
 
 ## Setup
 
@@ -168,32 +168,32 @@ API disponível em `http://localhost:8000`. Docs em `http://localhost:8000/docs`
 
 ## Categorias de Comunidades
 
-| Categoria | Descrição |
-|-----------|-----------|
-| tech | Technology, programming, software development, gadgets |
-| finance | Personal finance, investing, cryptocurrency |
-| health | Fitness, mental health, nutrition, wellness |
-| gaming | Video games, board games, esports, game dev |
-| marketing | Digital marketing, SEO, social media, advertising |
-| lifestyle | Home improvement, fashion, food, travel |
-| education | Learning, online courses, career development |
-| business | Entrepreneurship, startups, freelancing, remote work |
-| science | Research, space, biology, physics, environment |
-| entertainment | Movies, TV, music, books, art, podcasts |
+| Categoria     | Descrição                                              |
+| ------------- | ------------------------------------------------------ |
+| tech          | Technology, programming, software development, gadgets |
+| finance       | Personal finance, investing, cryptocurrency            |
+| health        | Fitness, mental health, nutrition, wellness            |
+| gaming        | Video games, board games, esports, game dev            |
+| marketing     | Digital marketing, SEO, social media, advertising      |
+| lifestyle     | Home improvement, fashion, food, travel                |
+| education     | Learning, online courses, career development           |
+| business      | Entrepreneurship, startups, freelancing, remote work   |
+| science       | Research, space, biology, physics, environment         |
+| entertainment | Movies, TV, music, books, art, podcasts                |
 
 ## Banco de Dados
 
 ### Tabelas Principais
 
-| Tabela | Descrição |
-|--------|-----------|
-| `community_stats` | Cache de stats (subscribers, growth, category) com TTL 24h |
-| `community_embeddings` | Vetores semânticos (pgvector) para busca por similaridade |
-| `related_subs` | Cache de comunidades relacionadas (TTL 7 dias) |
-| `audiences` | Audiências criadas pelo usuário |
-| `audience_communities` | Comunidades associadas a uma audiência |
-| `audience_templates` | Templates pré-gerados por IA |
-| `user_feedback` | Feedback de relevância para refinamento |
+| Tabela                 | Descrição                                                  |
+| ---------------------- | ---------------------------------------------------------- |
+| `community_stats`      | Cache de stats (subscribers, growth, category) com TTL 24h |
+| `community_embeddings` | Vetores semânticos (pgvector) para busca por similaridade  |
+| `related_subs`         | Cache de comunidades relacionadas (TTL 7 dias)             |
+| `audiences`            | Audiências criadas pelo usuário                            |
+| `audience_communities` | Comunidades associadas a uma audiência                     |
+| `audience_templates`   | Templates pré-gerados por IA                               |
+| `user_feedback`        | Feedback de relevância para refinamento                    |
 
 ## Documentação Adicional
 

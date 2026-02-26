@@ -13,7 +13,7 @@ def analyze_community(state: CommunityAnalyzerState) -> CommunityAnalyzerState:
     Analisa título e descrição da comunidade para gerar termos derivados
     """
     llm = ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0,
     )
 

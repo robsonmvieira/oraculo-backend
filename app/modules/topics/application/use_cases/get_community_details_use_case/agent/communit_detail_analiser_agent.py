@@ -16,11 +16,15 @@ def analyze_community(state: CommunityAnalyzerState) -> dict:
     Analisa título e descrição da comunidade para gerar termos derivados
     """
     llm = ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0,
     )
 
-    prompt = analyze_community_node_prompt(state["title"], state["public_description"], language=state.get("language", "en"))
+    prompt = analyze_community_node_prompt(
+        state["title"],
+        state["public_description"],
+        language=state.get("language", "en"),
+    )
 
     response = llm.invoke(prompt)
 
@@ -45,7 +49,9 @@ def create_community_analyzer_agent():
 
 
 def analyze_community_for_related_terms(
-    title: str, public_description: str, language: str = "en",
+    title: str,
+    public_description: str,
+    language: str = "en",
 ) -> list[str]:
     """
     Executa o agente e retorna os termos derivados
