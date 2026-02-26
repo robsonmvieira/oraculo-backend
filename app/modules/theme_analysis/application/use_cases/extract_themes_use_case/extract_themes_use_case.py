@@ -226,7 +226,23 @@ class ExtractThemesUseCase:
                 len(extracted),
             )
 
-            # 7. Notificar usuário
+            # 7. Avaliar alertas inteligentes
+            try:
+                from app.modules.topic_alerts.application.use_cases.evaluate_alerts_use_case import (
+                    EvaluateAlertsUseCase,
+                )
+
+                EvaluateAlertsUseCase(self.db).evaluate_themes(
+                    audience_id=audience_id,
+                    analysis_id=analysis_id,
+                    user_id=audience.user_id,
+                    audience_name=audience.name,
+                    time_window=window,
+                )
+            except Exception:
+                logger.debug("Failed to evaluate theme alerts")
+
+            # 8. Notificar usuário
             try:
                 from app.modules.notifications.application.services.notification_event_service import (
                     NotificationEventService,

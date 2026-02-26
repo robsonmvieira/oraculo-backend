@@ -11,13 +11,16 @@ from app.routes.communities import router as communities_router
 from app.routes.topic_deep_dive import router as topic_deep_dive_router
 from app.routes.topic_patterns import router as topic_patterns_router
 from app.routes.topic_sentiment import router as topic_sentiment_router
-from app.routes.topic_behavioral_patterns import router as topic_behavioral_patterns_router
+from app.routes.topic_behavioral_patterns import (
+    router as topic_behavioral_patterns_router,
+)
 from app.routes.topic_snapshots import router as topic_snapshots_router
 from app.routes.notifications import router as notifications_router
 from app.routes.topic_ask import router as topic_ask_router
 from app.routes.topic_chat import router as topic_chat_router
 from app.routes.theme_analysis import router as theme_analysis_router
 from app.routes.intent_classification import router as intent_classification_router
+from app.routes.topic_alerts import router as topic_alerts_router
 
 __all__ = [
     "auth_router",
@@ -38,4 +41,5 @@ __all__ = [
     "topic_chat_router",
     "theme_analysis_router",
     "intent_classification_router",
+    "topic_alerts_router",
 ]
