@@ -36,7 +36,9 @@ class ExtractTopicsUseCase:
         self.topic_repo = AudienceTopicRepository(db)
         self.reddit_provider = GenericRedditProvider()
 
-    def execute(self, audience_id: UUID, analysis_id: UUID, language: str = "en") -> bool:
+    def execute(
+        self, audience_id: UUID, analysis_id: UUID, language: str = "en"
+    ) -> bool:
         """
         Executa a extração completa de tópicos.
 
@@ -95,19 +97,23 @@ class ExtractTopicsUseCase:
                 self.topic_repo.mark_failed(analysis_id, "No posts collected")
                 return False
 
-            logger.info("Collected %d unique posts, running extraction agent", len(posts))
+            logger.info(
+                "Collected %d unique posts, running extraction agent", len(posts)
+            )
 
             # 3. Rodar agente de extração
             agent = create_topic_extraction_agent()
-            result = agent.invoke({
-                "audience_name": audience.name,
-                "audience_description": audience.description,
-                "community_names": community_names,
-                "posts": posts,
-                "total_posts": len(posts),
-                "language": language,
-                "extracted_topics": [],
-            })
+            result = agent.invoke(
+                {
+                    "audience_name": audience.name,
+                    "audience_description": audience.description,
+                    "community_names": community_names,
+                    "posts": posts,
+                    "total_posts": len(posts),
+                    "language": language,
+                    "extracted_topics": [],
+                }
+            )
 
             extracted = result.get("extracted_topics", [])
 
@@ -130,7 +136,22 @@ class ExtractTopicsUseCase:
                 len(extracted),
             )
 
-            # 7. Notificar usuário
+            # 7. Avaliar alertas inteligentes
+            try:
+                from app.modules.topic_alerts.application.use_cases.evaluate_alerts_use_case import (
+                    EvaluateAlertsUseCase,
+                )
+
+                EvaluateAlertsUseCase(self.db).evaluate_topics(
+                    audience_id=audience_id,
+                    analysis_id=analysis_id,
+                    user_id=audience.user_id,
+                    audience_name=audience.name,
+                )
+            except Exception:
+                logger.debug("Failed to evaluate topic alerts")
+
+            # 8. Notificar usuário
             try:
                 from app.modules.notifications.application.services.notification_event_service import (
                     NotificationEventService,
