@@ -26,7 +26,7 @@ MAX_POSTS_CHARS = 80_000
 
 def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0,
     )
 

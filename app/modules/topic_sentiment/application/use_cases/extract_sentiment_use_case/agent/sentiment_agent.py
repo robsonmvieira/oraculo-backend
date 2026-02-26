@@ -21,7 +21,7 @@ MAX_COMMENT_LENGTH = 500
 
 def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0,
     )
 
@@ -77,7 +77,9 @@ def collect_context(state: SentimentAnalysisState) -> dict:
     """Validates that we have posts to analyze."""
     posts = state.get("relevant_posts", [])
     if not posts:
-        logger.warning("No posts available for sentiment analysis of '%s'", state.get("topic_name"))
+        logger.warning(
+            "No posts available for sentiment analysis of '%s'", state.get("topic_name")
+        )
         return {"sentiment_result": None}
 
     logger.info(

@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         max_completion_tokens=16384,
     )
 
@@ -69,7 +68,7 @@ def answer_question(state: TopicAskState) -> dict:
     logger.info(
         "Ask Q&A: sending prompt to LLM (length: %d chars, model: %s)",
         len(prompt),
-        os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
     )
 
     response = llm.invoke(prompt)
@@ -85,8 +84,7 @@ def answer_question(state: TopicAskState) -> dict:
 
     if not answer:
         logger.warning(
-            "Ask Q&A: LLM returned empty answer for topic '%s'. "
-            "Full response: %s",
+            "Ask Q&A: LLM returned empty answer for topic '%s'. Full response: %s",
             state["topic_name"],
             repr(response),
         )

@@ -36,7 +36,7 @@ VALID_TONES = {
 
 def _get_llm() -> ChatOpenAI:
     """Retorna instância do LLM configurada."""
-    model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
+    model_name = os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07")
     return ChatOpenAI(model=model_name, temperature=0)
 
 
@@ -114,7 +114,9 @@ def generate_rich_summary(state: ThemeSummaryState) -> dict:
     result = _parse_json_response(response.content)
 
     if not result:
-        logger.error("Empty summary result from LLM for theme '%s'", theme_data["theme_name"])
+        logger.error(
+            "Empty summary result from LLM for theme '%s'", theme_data["theme_name"]
+        )
         return {"summary_result": None}
 
     # Validar emotional_tone

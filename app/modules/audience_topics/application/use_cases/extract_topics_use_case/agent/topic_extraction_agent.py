@@ -20,7 +20,7 @@ MAX_POSTS_CHARS = 80_000  # Limit to avoid exceeding context window
 
 def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0,
     )
 
@@ -111,10 +111,12 @@ def extract_topics(state: TopicExtractionState) -> dict:
             if ":" in comm_part:
                 comm_name, comm_count = comm_part.rsplit(":", 1)
                 try:
-                    communities.append({
-                        "name": comm_name.strip(),
-                        "post_count": int(comm_count.strip()),
-                    })
+                    communities.append(
+                        {
+                            "name": comm_name.strip(),
+                            "post_count": int(comm_count.strip()),
+                        }
+                    )
                 except ValueError:
                     communities.append({"name": comm_name.strip(), "post_count": 0})
 
@@ -148,7 +150,11 @@ def estimate_growth(state: TopicExtractionState) -> dict:
     # Build topics summary for growth estimation
     topics_lines = []
     for t in topics:
-        freq = f"{t['mention_frequency']}/{t['mention_period']}" if t["mention_frequency"] else "unknown"
+        freq = (
+            f"{t['mention_frequency']}/{t['mention_period']}"
+            if t["mention_frequency"]
+            else "unknown"
+        )
         comm_count = len(t["communities"])
         topics_lines.append(
             f"{t['name']} — freq: {freq}, posts: {t['post_count']}, communities: {comm_count}"
@@ -157,7 +163,9 @@ def estimate_growth(state: TopicExtractionState) -> dict:
     topics_text = "\n".join(topics_lines)
 
     llm = _get_llm()
-    prompt = estimate_growth_prompt(topics_text, state["audience_name"], language=state.get("language", "en"))
+    prompt = estimate_growth_prompt(
+        topics_text, state["audience_name"], language=state.get("language", "en")
+    )
     response = llm.invoke(prompt)
 
     # Parse growth results

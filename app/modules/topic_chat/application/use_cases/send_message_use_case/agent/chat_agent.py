@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         max_completion_tokens=16384,
     )
 
@@ -80,7 +80,7 @@ def answer_with_history(state: TopicChatState) -> dict:
     logger.info(
         "Topic Chat: sending %d messages to LLM (model: %s)",
         len(langchain_messages),
-        os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
     )
 
     response = llm.invoke(langchain_messages)
@@ -89,8 +89,7 @@ def answer_with_history(state: TopicChatState) -> dict:
 
     if not answer:
         logger.warning(
-            "Topic Chat: LLM returned empty answer for topic '%s'. "
-            "Full response: %s",
+            "Topic Chat: LLM returned empty answer for topic '%s'. Full response: %s",
             state["topic_name"],
             repr(response),
         )

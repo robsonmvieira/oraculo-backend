@@ -34,7 +34,6 @@ from app.modules.topics.infra.providers.reddit_provider.generic_reddit_provider 
     GenericRedditProvider,
 )
 
-
 SEED_CATEGORIES = {
     "tech": "Technology, programming, software development, gadgets, and IT",
     "finance": "Personal finance, investing, cryptocurrency, financial planning",
@@ -49,7 +48,9 @@ SEED_CATEGORIES = {
 }
 
 
-def generate_community_names(llm: ChatOpenAI, category: str, description: str) -> list[str]:
+def generate_community_names(
+    llm: ChatOpenAI, category: str, description: str
+) -> list[str]:
     """Usa LLM para gerar lista de subreddits por categoria."""
     prompt = f"""You are an expert on Reddit communities.
 
@@ -91,10 +92,10 @@ def process_category(
     dry_run: bool,
 ) -> dict:
     """Processa uma categoria: gera nomes, busca stats, gera embeddings."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Categoria: {category}")
     print(f"Descrição: {description}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # 1. LLM gera nomes
     print("\nGerando lista de comunidades via LLM...")
@@ -104,7 +105,13 @@ def process_category(
     if dry_run:
         for name in names:
             print(f"  - r/{name}")
-        return {"category": category, "suggested": len(names), "saved": 0, "failed": 0, "status": "dry-run"}
+        return {
+            "category": category,
+            "suggested": len(names),
+            "saved": 0,
+            "failed": 0,
+            "status": "dry-run",
+        }
 
     # 2. Buscar stats e salvar
     saved = 0
@@ -131,12 +138,14 @@ def process_category(
             if stats:
                 print(f"OK ({stats.subscribers:,} members)")
                 saved += 1
-                community_data_for_embeddings.append({
-                    "name": name,
-                    "title": data.get("title", name),
-                    "description": data.get("public_description", ""),
-                    "subscribers": data.get("subscribers", 0),
-                })
+                community_data_for_embeddings.append(
+                    {
+                        "name": name,
+                        "title": data.get("title", name),
+                        "description": data.get("public_description", ""),
+                        "subscribers": data.get("subscribers", 0),
+                    }
+                )
             else:
                 print("(falhou)")
                 failed += 1
@@ -150,7 +159,9 @@ def process_category(
 
     # 3. Gerar embeddings em batch
     if community_data_for_embeddings:
-        print(f"\n  Gerando embeddings para {len(community_data_for_embeddings)} comunidades...")
+        print(
+            f"\n  Gerando embeddings para {len(community_data_for_embeddings)} comunidades..."
+        )
         try:
             results = embedding_service.batch_get_or_create_embeddings(
                 community_data_for_embeddings
@@ -213,7 +224,7 @@ def main():
     # Setup
     db = SessionLocal()
     llm = ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0,
     )
     reddit = GenericRedditProvider()
@@ -255,7 +266,9 @@ def main():
             status += f", {r['failed']} falhas"
         print(f"  {r['category']}: {status}")
 
-    print(f"\nTotal: {total_saved} salvas, {total_failed} falhas, de {total_suggested} sugeridas")
+    print(
+        f"\nTotal: {total_saved} salvas, {total_failed} falhas, de {total_suggested} sugeridas"
+    )
     print("=" * 60)
 
 

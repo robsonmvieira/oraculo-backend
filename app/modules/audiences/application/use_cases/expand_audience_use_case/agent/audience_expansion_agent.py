@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0,
     )
 
@@ -33,7 +33,9 @@ def analyze_audience_theme(state: AudienceExpansionState) -> dict:
         return {"audience_theme": "General"}
 
     llm = _get_llm()
-    prompt = analyze_audience_theme_prompt(communities, language=state.get("language", "en"))
+    prompt = analyze_audience_theme_prompt(
+        communities, language=state.get("language", "en")
+    )
     response = llm.invoke(prompt)
 
     theme = "General"
@@ -90,7 +92,9 @@ def rank_and_explain(state: AudienceExpansionState) -> dict:
         return {"suggestions": []}
 
     llm = _get_llm()
-    prompt = rank_and_explain_prompt(state["audience_theme"], real_candidates, language=state.get("language", "en"))
+    prompt = rank_and_explain_prompt(
+        state["audience_theme"], real_candidates, language=state.get("language", "en")
+    )
     response = llm.invoke(prompt)
 
     # Build a lookup map from candidates
@@ -123,9 +127,9 @@ def rank_and_explain(state: AudienceExpansionState) -> dict:
                 title=candidate.get("title"),
                 description=candidate.get("description"),
                 subscribers=candidate.get("subscribers"),
-                size_tag=None,      # Enriched by use case from community_stats
+                size_tag=None,  # Enriched by use case from community_stats
                 activity_tag=None,  # Enriched by use case from community_stats
-                growth_week=None,   # Enriched by use case from community_stats
+                growth_week=None,  # Enriched by use case from community_stats
                 relevance_score=score,
                 relevance_reason=reason,
             )

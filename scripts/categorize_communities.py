@@ -3,7 +3,7 @@ Script para categorizar comunidades com category=NULL usando LLM.
 
 Comunidades sem categoria vêm do fallback para Reddit API na busca híbrida
 (Issue #8). Este script classifica cada uma em uma das categorias existentes
-usando gpt-4o-mini em batch.
+usando gpt-5-nano-2025-08-07 em batch.
 
 Uso:
     python -m scripts.categorize_communities
@@ -34,10 +34,17 @@ from app.modules.shared.infra.repositories.community_stats_repository import (
     CommunityStatsRepository,
 )
 
-
 VALID_CATEGORIES = [
-    "tech", "finance", "health", "gaming", "marketing",
-    "lifestyle", "education", "business", "science", "entertainment",
+    "tech",
+    "finance",
+    "health",
+    "gaming",
+    "marketing",
+    "lifestyle",
+    "education",
+    "business",
+    "science",
+    "entertainment",
 ]
 
 
@@ -47,10 +54,10 @@ def build_categorization_prompt(communities: list[dict]) -> str:
     for c in communities:
         line = f"- name: {c['name']}"
         if c.get("title"):
-            line += f", title: \"{c['title']}\""
+            line += f', title: "{c["title"]}"'
         if c.get("description"):
             desc = c["description"][:200]
-            line += f", description: \"{desc}\""
+            line += f', description: "{desc}"'
         community_lines.append(line)
 
     communities_text = "\n".join(community_lines)
@@ -117,7 +124,9 @@ def categorize_batch(
         if cat in VALID_CATEGORIES or cat == "other":
             validated[name_clean] = cat
         else:
-            print(f"    AVISO: Categoria inválida '{cat}' para r/{name}, usando 'other'")
+            print(
+                f"    AVISO: Categoria inválida '{cat}' para r/{name}, usando 'other'"
+            )
             validated[name_clean] = "other"
 
     return validated
@@ -223,7 +232,7 @@ def main():
 
     db = SessionLocal()
     llm = ChatOpenAI(
-        model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0,
     )
 
@@ -247,7 +256,9 @@ def main():
         for i in range(0, len(uncategorized), args.batch_size):
             batch = uncategorized[i : i + args.batch_size]
             batch_num = i // args.batch_size + 1
-            total_batches = (len(uncategorized) + args.batch_size - 1) // args.batch_size
+            total_batches = (
+                len(uncategorized) + args.batch_size - 1
+            ) // args.batch_size
 
             print(f"\nBatch {batch_num}/{total_batches} ({len(batch)} comunidades)")
 
