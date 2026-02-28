@@ -3,6 +3,8 @@ import logging
 import os
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.topic_sentiment.application.use_cases.extract_sentiment_use_case.agent.prompts.sentiment_prompts import (
@@ -115,7 +117,7 @@ def analyze_sentiment(state: SentimentAnalysisState) -> dict:
     )
 
     response = llm.invoke(prompt)
-    content = response.content.strip()
+    content = extract_response_text(response)
 
     # Clean markdown code blocks if present
     if content.startswith("```"):

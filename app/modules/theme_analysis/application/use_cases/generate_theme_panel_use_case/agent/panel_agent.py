@@ -6,6 +6,8 @@ import os
 import re
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.theme_analysis.application.use_cases.generate_theme_panel_use_case.agent.prompts.panel_prompts import (
@@ -65,7 +67,7 @@ def extract_subcategories(state: ThemePanelState) -> dict:
 
     llm = _get_llm()
     response = llm.invoke(prompt)
-    items = _parse_json_response(response.content)
+    items = _parse_json_response(extract_response_text(response))
 
     if not items:
         logger.error(

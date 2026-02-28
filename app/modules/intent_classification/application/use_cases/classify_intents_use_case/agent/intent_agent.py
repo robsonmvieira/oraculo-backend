@@ -7,6 +7,8 @@ import re
 from collections import Counter
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.intent_classification.application.use_cases.classify_intents_use_case.agent.prompts.intent_prompts import (
@@ -127,7 +129,7 @@ def classify_intents(state: IntentClassificationState) -> dict:
         )
 
         response = llm.invoke(prompt)
-        batch_results = _parse_json_response(response.content)
+        batch_results = _parse_json_response(extract_response_text(response))
 
         for result in batch_results:
             post_id = result.get("post_id", "")
@@ -251,7 +253,7 @@ def aggregate_intents(state: IntentClassificationState) -> dict:
         )
 
         response = llm.invoke(prompt)
-        descriptions = _parse_json_response(response.content)
+        descriptions = _parse_json_response(extract_response_text(response))
 
         # Mapear descrições para agregações
         desc_map = {

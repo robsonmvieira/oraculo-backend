@@ -3,6 +3,8 @@ import os
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.topic_chat.application.use_cases.send_message_use_case.agent.prompts.chat_prompts import (
@@ -85,7 +87,7 @@ def answer_with_history(state: TopicChatState) -> dict:
 
     response = llm.invoke(langchain_messages)
 
-    answer = response.content.strip() if response.content else ""
+    answer = extract_response_text(response) if response.content else ""
 
     if not answer:
         logger.warning(

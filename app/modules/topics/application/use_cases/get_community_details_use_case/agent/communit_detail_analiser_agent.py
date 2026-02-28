@@ -1,6 +1,8 @@
 import os
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.topics.application.use_cases.get_community_details_use_case.agent.prompts.analizy_community_prompt import (
@@ -29,7 +31,7 @@ def analyze_community(state: CommunityAnalyzerState) -> dict:
     response = llm.invoke(prompt)
 
     # Parsear a resposta - separar por vírgula e limpar espaços
-    terms = [term.strip() for term in response.content.split(",")]
+    terms = [term.strip() for term in extract_response_text(response).split(",")]
 
     return {"derived_terms": terms[:10]}
 

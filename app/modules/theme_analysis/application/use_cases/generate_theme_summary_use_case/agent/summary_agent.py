@@ -6,6 +6,8 @@ import os
 import re
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.theme_analysis.application.use_cases.generate_theme_summary_use_case.agent.prompts.summary_prompts import (
@@ -111,7 +113,7 @@ def generate_rich_summary(state: ThemeSummaryState) -> dict:
 
     llm = _get_llm()
     response = llm.invoke(prompt)
-    result = _parse_json_response(response.content)
+    result = _parse_json_response(extract_response_text(response))
 
     if not result:
         logger.error(

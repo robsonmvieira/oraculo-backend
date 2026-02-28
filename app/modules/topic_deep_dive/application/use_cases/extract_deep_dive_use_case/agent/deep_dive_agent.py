@@ -7,6 +7,7 @@ from langgraph.graph import END, START, StateGraph
 from app.modules.shared.application.services.llm_factory import (
     ContextLimits,
     create_llm,
+    extract_response_text,
     get_context_limits,
 )
 from app.modules.topic_deep_dive.application.use_cases.extract_deep_dive_use_case.agent.prompts.deep_dive_prompts import (
@@ -145,7 +146,7 @@ def analyze_deep_dive(state: DeepDiveState) -> dict:
     )
 
     response = llm.invoke(prompt)
-    content = response.content.strip()
+    content = extract_response_text(response)
 
     # Clean markdown code blocks if present
     if content.startswith("```"):
@@ -184,7 +185,7 @@ def extract_representative_posts(state: DeepDiveState) -> dict:
     )
 
     response = llm.invoke(prompt)
-    content = response.content.strip()
+    content = extract_response_text(response)
 
     # Clean markdown code blocks if present
     if content.startswith("```"):

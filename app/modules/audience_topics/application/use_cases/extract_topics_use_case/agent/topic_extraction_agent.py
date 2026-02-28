@@ -2,6 +2,8 @@ import logging
 import os
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.audience_topics.application.use_cases.extract_topics_use_case.agent.prompts.topic_extraction_prompts import (
@@ -78,7 +80,7 @@ def extract_topics(state: TopicExtractionState) -> dict:
     topics: list[ExtractedTopic] = []
     rank = 1
 
-    for line in response.content.strip().split("\n"):
+    for line in extract_response_text(response).split("\n"):
         line = line.strip()
         if not line or "|" not in line:
             continue
@@ -170,7 +172,7 @@ def estimate_growth(state: TopicExtractionState) -> dict:
 
     # Parse growth results
     growth_map = {}
-    for line in response.content.strip().split("\n"):
+    for line in extract_response_text(response).split("\n"):
         line = line.strip()
         if not line or "|" not in line:
             continue

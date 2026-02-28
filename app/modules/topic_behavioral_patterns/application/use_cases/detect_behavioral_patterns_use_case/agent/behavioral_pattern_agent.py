@@ -6,6 +6,7 @@ from langgraph.graph import END, START, StateGraph
 from app.modules.shared.application.services.llm_factory import (
     ContextLimits,
     create_llm,
+    extract_response_text,
     get_context_limits,
 )
 from app.modules.topic_behavioral_patterns.application.use_cases.detect_behavioral_patterns_use_case.agent.prompts.behavioral_pattern_prompts import (
@@ -111,7 +112,7 @@ def detect_behavioral_patterns(state: BehavioralPatternState) -> dict:
     )
 
     response = llm.invoke(prompt)
-    content = response.content.strip()
+    content = extract_response_text(response)
 
     if content.startswith("```"):
         content = content.split("\n", 1)[1] if "\n" in content else content[3:]
