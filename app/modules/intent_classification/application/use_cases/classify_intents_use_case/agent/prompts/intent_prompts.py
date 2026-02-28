@@ -38,7 +38,9 @@ Respond in JSON format. For each post, provide:
     "post_id": "reddit_post_id",
     "primary_intent": "category_name",
     "secondary_intent": "category_name_or_null",
-    "confidence": "high|medium|low"
+    "confidence": "high|medium|low",
+    "sentiment": "specific_emotion_or_null",
+    "topic_keyword": "single_word_topic_or_null"
   }}
 ]
 
@@ -48,6 +50,9 @@ RULES:
 - A post about a bad experience asking for advice = primary: "pain_and_anger", secondary: "advice_request"
 - When in doubt between two categories, pick the one that reflects the author's MAIN purpose
 - Use "high" confidence when the intent is unambiguous, "medium" when reasonable, "low" when unclear
+- "sentiment" and "topic_keyword" are ONLY for posts where primary_intent is "pain_and_anger". For all other categories, set both to null
+- "sentiment" must be a single specific emotion label (e.g., "frustration", "anger", "disappointment", "concern", "anxiety", "sadness", "helplessness", "resentment", "overwhelm", "desperation"). Pick the single most dominant emotion
+- "topic_keyword" must be a SINGLE word that captures the main subject of the post (e.g., "dog", "pricing", "support", "bug", "shipping"). Pick the most specific applicable word
 - Return ONLY the JSON array, no additional text
 {language_directive}"""
 

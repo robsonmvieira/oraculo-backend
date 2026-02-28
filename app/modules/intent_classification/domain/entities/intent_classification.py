@@ -78,6 +78,8 @@ class PostIntentClassification(Base):
     primary_intent = Column(String(30), nullable=False, index=True)
     secondary_intent = Column(String(30), nullable=True)
     confidence = Column(String(10), nullable=False)  # high, medium, low
+    sentiment = Column(String(30), nullable=True, index=True)  # Apenas para pain_and_anger
+    topic_keyword = Column(String(50), nullable=True)  # Apenas para pain_and_anger
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -106,6 +108,8 @@ class IntentSummary(Base):
     sample_posts = Column(
         JSON, nullable=True
     )  # [{"title": "...", "subreddit": "...", "score": N}]
+    subcategories = Column(JSON, nullable=True)  # {"frustration": 15, "anger": 4, ...}
+    topic_keywords = Column(JSON, nullable=True)  # {"dog": 15, "behavior": 8, ...}
     rank = Column(Integer, nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

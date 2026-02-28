@@ -23,6 +23,8 @@ class ClassifiedPost(TypedDict):
     primary_intent: str
     secondary_intent: str | None
     confidence: str  # high, medium, low
+    sentiment: str | None  # Apenas para pain_and_anger
+    topic_keyword: str | None  # Apenas para pain_and_anger
 
 
 class IntentAggregation(TypedDict):
@@ -34,6 +36,8 @@ class IntentAggregation(TypedDict):
     top_subreddits: list[dict]  # [{"name": "...", "count": N}]
     sample_posts: list[dict]  # [{"title": "...", "subreddit": "...", "score": N}]
     rank: int
+    subcategories: dict | None  # {"frustration": 15, "anger": 4} — só pain_and_anger
+    topic_keywords: dict | None  # {"dog": 15, "behavior": 8} — só pain_and_anger
 
 
 class IntentClassificationState(TypedDict):

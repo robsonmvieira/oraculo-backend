@@ -78,6 +78,43 @@ def _build_posts_batch_text(posts: list[dict], max_chars: int = MAX_POSTS_CHARS)
     return "".join(lines)
 
 
+def _extract_pain_anger_subcategories(
+    posts_in_cat: list[dict],
+) -> tuple[dict | None, dict | None]:
+    """Extrai subcategorias de sentimento e topic keywords para pain_and_anger."""
+    sentiment_counter = Counter(
+        p["sentiment"] for p in posts_in_cat if p.get("sentiment")
+    )
+    subcategories = dict(sentiment_counter.most_common(10)) if sentiment_counter else None
+
+    keyword_counter = Counter(
+        p["topic_keyword"] for p in posts_in_cat if p.get("topic_keyword")
+    )
+    topic_keywords = dict(keyword_counter.most_common(10)) if keyword_counter else None
+
+    return subcategories, topic_keywords
+
+
+def _extract_sentiment_and_keyword(result: dict) -> tuple[str | None, str | None]:
+    """Extrai e valida sentiment e topic_keyword de um resultado de classificação."""
+    sentiment = None
+    topic_keyword = None
+
+    raw_sentiment = result.get("sentiment")
+    if raw_sentiment and isinstance(raw_sentiment, str):
+        raw_sentiment = raw_sentiment.strip().lower()
+        if raw_sentiment and len(raw_sentiment) <= 30:
+            sentiment = raw_sentiment
+
+    raw_keyword = result.get("topic_keyword")
+    if raw_keyword and isinstance(raw_keyword, str):
+        raw_keyword = raw_keyword.strip()
+        if raw_keyword:
+            topic_keyword = raw_keyword.split()[0][:50].lower()
+
+    return sentiment, topic_keyword
+
+
 def _parse_json_response(content: str) -> list[dict]:
     """Extrai array JSON da resposta do LLM."""
     cleaned = content.strip()
@@ -93,6 +130,44 @@ def _parse_json_response(content: str) -> list[dict]:
     except json.JSONDecodeError:
         logger.warning("Failed to parse LLM JSON response")
         return []
+
+
+def _validate_and_build_classified_post(
+    result: dict, post_lookup: dict[str, dict]
+) -> ClassifiedPost | None:
+    """Valida um resultado de classificação e constrói o ClassifiedPost."""
+    post_id = result.get("post_id", "")
+    primary = result.get("primary_intent", "")
+    secondary = result.get("secondary_intent")
+
+    if primary not in VALID_INTENTS:
+        logger.warning("Invalid primary_intent '%s' for post %s, skipping", primary, post_id)
+        return None
+
+    if secondary and secondary not in VALID_INTENTS:
+        secondary = None
+
+    original = post_lookup.get(post_id)
+    if not original:
+        logger.warning("Post ID '%s' not found in batch, skipping", post_id)
+        return None
+
+    sentiment, topic_keyword = (
+        _extract_sentiment_and_keyword(result)
+        if primary == "pain_and_anger"
+        else (None, None)
+    )
+
+    return ClassifiedPost(
+        post_id=post_id,
+        post_title=original["title"],
+        post_subreddit=original["subreddit"],
+        primary_intent=primary,
+        secondary_intent=secondary,
+        confidence=result.get("confidence", "medium"),
+        sentiment=sentiment,
+        topic_keyword=topic_keyword,
+    )
 
 
 def classify_intents(state: IntentClassificationState) -> dict:
@@ -132,38 +207,9 @@ def classify_intents(state: IntentClassificationState) -> dict:
         batch_results = _parse_json_response(extract_response_text(response))
 
         for result in batch_results:
-            post_id = result.get("post_id", "")
-            primary = result.get("primary_intent", "")
-            secondary = result.get("secondary_intent")
-
-            # Validar categoria
-            if primary not in VALID_INTENTS:
-                logger.warning(
-                    "Invalid primary_intent '%s' for post %s, skipping",
-                    primary,
-                    post_id,
-                )
-                continue
-
-            if secondary and secondary not in VALID_INTENTS:
-                secondary = None
-
-            # Buscar dados do post original
-            original = post_lookup.get(post_id)
-            if not original:
-                logger.warning("Post ID '%s' not found in batch, skipping", post_id)
-                continue
-
-            all_classified.append(
-                ClassifiedPost(
-                    post_id=post_id,
-                    post_title=original["title"],
-                    post_subreddit=original["subreddit"],
-                    primary_intent=primary,
-                    secondary_intent=secondary,
-                    confidence=result.get("confidence", "medium"),
-                )
-            )
+            classified = _validate_and_build_classified_post(result, post_lookup)
+            if classified:
+                all_classified.append(classified)
 
         logger.info(
             "Classified batch %d-%d: %d posts",
@@ -215,12 +261,21 @@ def aggregate_intents(state: IntentClassificationState) -> dict:
             for p in posts_in_cat[:5]
         ]
 
+        # Subcategorias de sentimento e topic keywords (apenas pain_and_anger)
+        subcategories, topic_keywords_agg = (
+            _extract_pain_anger_subcategories(posts_in_cat)
+            if category == "pain_and_anger"
+            else (None, None)
+        )
+
         aggregations.append(
             {
                 "category": category,
                 "post_count": len(posts_in_cat),
                 "top_subreddits": top_subs,
                 "sample_posts": sample,
+                "subcategories": subcategories,
+                "topic_keywords": topic_keywords_agg,
             }
         )
 
