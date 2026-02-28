@@ -2,6 +2,8 @@ import logging
 import os
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.topic_ask.application.use_cases.ask_topic_use_case.agent.prompts.ask_prompts import (
@@ -80,7 +82,7 @@ def answer_question(state: TopicAskState) -> dict:
         (response.content[:200] if response.content else "<EMPTY>"),
     )
 
-    answer = response.content.strip() if response.content else ""
+    answer = extract_response_text(response) if response.content else ""
 
     if not answer:
         logger.warning(

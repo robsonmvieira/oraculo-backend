@@ -2,6 +2,8 @@ import logging
 import os
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.audiences.application.use_cases.expand_audience_use_case.agent.prompts.audience_expansion_prompts import (
@@ -40,7 +42,7 @@ def analyze_audience_theme(state: AudienceExpansionState) -> dict:
 
     theme = "General"
 
-    for line in response.content.strip().split("\n"):
+    for line in extract_response_text(response).split("\n"):
         if line.startswith("THEME:"):
             theme = line.replace("THEME:", "").strip()
 
@@ -101,7 +103,7 @@ def rank_and_explain(state: AudienceExpansionState) -> dict:
     candidate_map = {c["name"].lower(): c for c in real_candidates}
 
     suggestions: list[RankedSuggestion] = []
-    for line in response.content.strip().split("\n"):
+    for line in extract_response_text(response).split("\n"):
         line = line.strip()
         if not line or "|" not in line:
             continue

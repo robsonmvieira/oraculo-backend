@@ -125,6 +125,29 @@ def create_llm(
     )
 
 
+def extract_response_text(response) -> str:
+    """Extract text content from an LLM response, normalizing across providers.
+
+    Gemini may return response.content as a list of parts instead of a plain
+    string.  This helper guarantees a plain ``str`` is returned regardless of
+    the provider used.
+    """
+    content = response.content
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = []
+        for part in content:
+            if isinstance(part, str):
+                parts.append(part)
+            elif isinstance(part, dict):
+                parts.append(part.get("text", ""))
+            else:
+                parts.append(str(part))
+        return "".join(parts).strip()
+    return str(content).strip()
+
+
 # ---------------------------------------------------------------------------
 # Context limits factory
 # ---------------------------------------------------------------------------

@@ -3,6 +3,8 @@ import os
 
 from langchain_openai import ChatOpenAI
 
+from app.modules.shared.application.services.llm_factory import extract_response_text
+
 from app.modules.topics.application.use_cases.get_community_details_use_case.agent.state import (
     CommunityAnalyzerState,
 )
@@ -32,7 +34,7 @@ Exemplo: marketing, digital, saas, startup, tecnologia, negócios, empreendedori
     response = llm.invoke(prompt)
 
     # Parsear a resposta - separar por vírgula e limpar espaços
-    terms = [term.strip() for term in response.content.split(",")]
+    terms = [term.strip() for term in extract_response_text(response).split(",")]
 
     return {"derived_terms": terms[:10]}  # Garantir no máximo 10 termos
 """

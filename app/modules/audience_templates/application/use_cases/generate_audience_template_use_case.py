@@ -3,6 +3,8 @@ import re
 from dataclasses import dataclass
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from sqlalchemy.orm import Session
 
 from app.modules.audience_templates.domain.entities.audience_template import (
@@ -141,7 +143,7 @@ Responda APENAS com os termos separados por vírgula, sem explicações.
 Exemplo: startups, entrepreneur, saas founders, bootstrapped, indie hackers"""
 
         response = self.llm.invoke(prompt)
-        keywords = [k.strip() for k in response.content.split(",")]
+        keywords = [k.strip() for k in extract_response_text(response).split(",")]
         return keywords[:8]
 
     def _search_subreddits(self, keywords: list[str]) -> list[dict]:
@@ -221,7 +223,7 @@ SaaS"""
 
         # Parsear resposta
         selected_names = set()
-        for line in response.content.strip().split("\n"):
+        for line in extract_response_text(response).split("\n"):
             name = line.strip().lower().replace("r/", "").replace("-", "")
             if name:
                 selected_names.add(name)

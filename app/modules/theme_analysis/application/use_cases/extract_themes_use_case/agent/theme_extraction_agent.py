@@ -5,6 +5,8 @@ import logging
 import os
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.shared.application.helpers.language_directive import (
@@ -104,7 +106,7 @@ def extract_themes(state: ThemeExtractionState) -> dict:
     response = llm.invoke(prompt)
 
     try:
-        raw_themes = _parse_json_response(response.content)
+        raw_themes = _parse_json_response(extract_response_text(response))
     except ValueError:
         logger.error("Failed to parse themes JSON from LLM response")
         return {"extracted_themes": []}
@@ -172,7 +174,7 @@ def generate_summary(state: ThemeExtractionState) -> dict:
     response = llm.invoke(prompt)
 
     try:
-        summaries = _parse_json_response(response.content)
+        summaries = _parse_json_response(extract_response_text(response))
     except ValueError:
         logger.error("Failed to parse summaries JSON from LLM response")
         return {"extracted_themes": themes}

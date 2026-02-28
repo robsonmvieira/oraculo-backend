@@ -7,6 +7,7 @@ from langgraph.graph import END, START, StateGraph
 from app.modules.shared.application.services.llm_factory import (
     ContextLimits,
     create_llm,
+    extract_response_text,
     get_context_limits,
 )
 from app.modules.topic_patterns.application.use_cases.detect_patterns_use_case.agent.prompts.pattern_detection_prompts import (
@@ -161,7 +162,7 @@ def detect_patterns(state: PatternDetectionState) -> dict:
     )
 
     response = llm.invoke(prompt)
-    content = response.content.strip()
+    content = extract_response_text(response)
 
     # Clean markdown code blocks if present
     if content.startswith("```"):

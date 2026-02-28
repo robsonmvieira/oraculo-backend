@@ -2,6 +2,8 @@ import logging
 import os
 
 from langchain_openai import ChatOpenAI
+
+from app.modules.shared.application.services.llm_factory import extract_response_text
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.audience_keywords.application.use_cases.extract_keywords_use_case.agent.prompts.keyword_extraction_prompts import (
@@ -45,7 +47,7 @@ def extract_keywords(state: KeywordExtractionState) -> dict:
     keywords: list[ExtractedKeyword] = []
     rank = 1
 
-    for line in response.content.strip().split("\n"):
+    for line in extract_response_text(response).split("\n"):
         line = line.strip()
         if not line or "|" not in line:
             continue
