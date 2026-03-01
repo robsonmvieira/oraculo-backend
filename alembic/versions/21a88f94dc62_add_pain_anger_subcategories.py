@@ -20,21 +20,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.add_column(
-        "post_intent_classifications",
-        sa.Column("sentiment", sa.String(length=30), nullable=True),
-    )
-    op.add_column(
-        "post_intent_classifications",
-        sa.Column("topic_keyword", sa.String(length=50), nullable=True),
-    )
-    op.create_index(
-        op.f("ix_post_intent_classifications_sentiment"),
-        "post_intent_classifications",
-        ["sentiment"],
-        unique=False,
-    )
-
-    op.add_column(
         "intent_summaries",
         sa.Column("subcategories", sa.JSON(), nullable=True),
     )
@@ -47,9 +32,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_column("intent_summaries", "topic_keywords")
     op.drop_column("intent_summaries", "subcategories")
-    op.drop_index(
-        op.f("ix_post_intent_classifications_sentiment"),
-        table_name="post_intent_classifications",
-    )
-    op.drop_column("post_intent_classifications", "topic_keyword")
-    op.drop_column("post_intent_classifications", "sentiment")

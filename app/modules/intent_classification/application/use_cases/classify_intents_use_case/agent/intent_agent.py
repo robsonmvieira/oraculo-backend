@@ -13,6 +13,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.modules.intent_classification.application.use_cases.classify_intents_use_case.agent.prompts.intent_prompts import (
     get_aggregate_intents_prompt,
+    get_analyze_pain_anger_prompt,
     get_classify_intents_prompt,
 )
 from app.modules.intent_classification.application.use_cases.classify_intents_use_case.agent.state import (
@@ -78,43 +79,6 @@ def _build_posts_batch_text(posts: list[dict], max_chars: int = MAX_POSTS_CHARS)
     return "".join(lines)
 
 
-def _extract_pain_anger_subcategories(
-    posts_in_cat: list[dict],
-) -> tuple[dict | None, dict | None]:
-    """Extrai subcategorias de sentimento e topic keywords para pain_and_anger."""
-    sentiment_counter = Counter(
-        p["sentiment"] for p in posts_in_cat if p.get("sentiment")
-    )
-    subcategories = dict(sentiment_counter.most_common(10)) if sentiment_counter else None
-
-    keyword_counter = Counter(
-        p["topic_keyword"] for p in posts_in_cat if p.get("topic_keyword")
-    )
-    topic_keywords = dict(keyword_counter.most_common(10)) if keyword_counter else None
-
-    return subcategories, topic_keywords
-
-
-def _extract_sentiment_and_keyword(result: dict) -> tuple[str | None, str | None]:
-    """Extrai e valida sentiment e topic_keyword de um resultado de classificação."""
-    sentiment = None
-    topic_keyword = None
-
-    raw_sentiment = result.get("sentiment")
-    if raw_sentiment and isinstance(raw_sentiment, str):
-        raw_sentiment = raw_sentiment.strip().lower()
-        if raw_sentiment and len(raw_sentiment) <= 30:
-            sentiment = raw_sentiment
-
-    raw_keyword = result.get("topic_keyword")
-    if raw_keyword and isinstance(raw_keyword, str):
-        raw_keyword = raw_keyword.strip()
-        if raw_keyword:
-            topic_keyword = raw_keyword.split()[0][:50].lower()
-
-    return sentiment, topic_keyword
-
-
 def _parse_json_response(content: str) -> list[dict]:
     """Extrai array JSON da resposta do LLM."""
     cleaned = content.strip()
@@ -152,11 +116,8 @@ def _validate_and_build_classified_post(
         logger.warning("Post ID '%s' not found in batch, skipping", post_id)
         return None
 
-    sentiment, topic_keyword = (
-        _extract_sentiment_and_keyword(result)
-        if primary == "pain_and_anger"
-        else (None, None)
-    )
+    raw_confidence = result.get("confidence", "medium")
+    confidence = raw_confidence if raw_confidence in ("high", "medium", "low") else "medium"
 
     return ClassifiedPost(
         post_id=post_id,
@@ -164,9 +125,7 @@ def _validate_and_build_classified_post(
         post_subreddit=original["subreddit"],
         primary_intent=primary,
         secondary_intent=secondary,
-        confidence=result.get("confidence", "medium"),
-        sentiment=sentiment,
-        topic_keyword=topic_keyword,
+        confidence=confidence,
     )
 
 
@@ -248,34 +207,20 @@ def aggregate_intents(state: IntentClassificationState) -> dict:
         if not posts_in_cat:
             continue
 
-        # Top subreddits por frequência
-        sub_counter = Counter(p["post_subreddit"] for p in posts_in_cat)
-        top_subs = [
-            {"name": name, "count": count} for name, count in sub_counter.most_common(5)
-        ]
-
-        # Sample posts (primeiros 5 — já que não temos score individual no ClassifiedPost,
-        # usamos os primeiros 5 como representativos)
+        # Sample posts (primeiros 5)
         sample = [
             {"title": p["post_title"], "subreddit": p["post_subreddit"]}
             for p in posts_in_cat[:5]
         ]
 
-        # Subcategorias de sentimento e topic keywords (apenas pain_and_anger)
-        subcategories, topic_keywords_agg = (
-            _extract_pain_anger_subcategories(posts_in_cat)
-            if category == "pain_and_anger"
-            else (None, None)
-        )
-
         aggregations.append(
             {
                 "category": category,
                 "post_count": len(posts_in_cat),
-                "top_subreddits": top_subs,
                 "sample_posts": sample,
-                "subcategories": subcategories,
-                "topic_keywords": topic_keywords_agg,
+                "subcategories": None,
+                "topic_keywords": None,
+                "top_subreddits": None,
             }
         )
 
@@ -293,7 +238,6 @@ def aggregate_intents(state: IntentClassificationState) -> dict:
             {
                 "category": a["category"],
                 "post_count": a["post_count"],
-                "top_subreddits": [s["name"] for s in a["top_subreddits"][:3]],
                 "sample_titles": [s["title"] for s in a["sample_posts"][:3]],
             }
             for a in aggregations
@@ -321,12 +265,122 @@ def aggregate_intents(state: IntentClassificationState) -> dict:
     return {"intent_aggregations": aggregations}
 
 
+def _parse_json_object_response(content: str) -> dict:
+    """Extrai objeto JSON da resposta do LLM."""
+    cleaned = content.strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    cleaned = cleaned.strip()
+
+    try:
+        result = json.loads(cleaned)
+        if isinstance(result, dict):
+            return result
+        return {}
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse LLM JSON object response")
+        return {}
+
+
+def analyze_pain_anger(state: IntentClassificationState) -> dict:
+    """
+    Nó 3: Analisa posts pain_and_anger para extrair subcategorias de sentimento e tópicos.
+
+    Envia TODOS os posts classificados como pain_and_anger ao LLM em uma única chamada
+    para obter distribuições agregadas de sentimentos e topic keywords.
+    Também computa top_subreddits (de quais comunidades vêm os posts pain_and_anger).
+    """
+    aggregations = state.get("intent_aggregations", [])
+    classified = state.get("classified_posts", [])
+
+    # Filtrar posts pain_and_anger
+    pain_posts = [p for p in classified if p["primary_intent"] == "pain_and_anger"]
+    if not pain_posts:
+        return {"intent_aggregations": aggregations}
+
+    # Computar top_subreddits a partir dos posts pain_and_anger
+    subreddit_counter = Counter(p["post_subreddit"] for p in pain_posts)
+    top_subreddits = [
+        {"name": name, "count": count}
+        for name, count in subreddit_counter.most_common(10)
+    ]
+
+    # Construir texto de posts para o prompt
+    posts_text = _build_posts_batch_text(
+        [
+            {
+                "id": p["post_id"],
+                "subreddit": p["post_subreddit"],
+                "title": p["post_title"],
+                "score": 0,
+                "num_comments": 0,
+            }
+            for p in pain_posts
+        ]
+    )
+
+    llm = _get_llm()
+    language_directive = get_language_directive(state.get("language", "en"))
+
+    prompt = get_analyze_pain_anger_prompt(
+        audience_name=state["audience_name"],
+        period_start=state["period_start"],
+        period_end=state["period_end"],
+        posts_text=posts_text,
+        total_posts=len(pain_posts),
+        language_directive=language_directive,
+    )
+
+    response = llm.invoke(prompt)
+    result = _parse_json_object_response(extract_response_text(response))
+
+    subcategories = result.get("subcategories")
+    topic_keywords = result.get("topic_keywords")
+
+    # Validar e limitar a 10 itens
+    if isinstance(subcategories, dict):
+        subcategories = dict(
+            sorted(subcategories.items(), key=lambda x: x[1], reverse=True)[:10]
+        )
+    else:
+        subcategories = None
+
+    if isinstance(topic_keywords, dict):
+        topic_keywords = dict(
+            sorted(topic_keywords.items(), key=lambda x: x[1], reverse=True)[:10]
+        )
+    else:
+        topic_keywords = None
+
+    # Atualizar a agregação de pain_and_anger
+    updated = []
+    for agg in aggregations:
+        if agg["category"] == "pain_and_anger":
+            agg = {
+                **agg,
+                "subcategories": subcategories,
+                "topic_keywords": topic_keywords,
+                "top_subreddits": top_subreddits,
+            }
+        updated.append(agg)
+
+    logger.info(
+        "Pain & Anger analysis: %d subcategories, %d topic keywords, %d subreddits",
+        len(subcategories) if subcategories else 0,
+        len(topic_keywords) if topic_keywords else 0,
+        len(top_subreddits),
+    )
+    return {"intent_aggregations": updated}
+
+
 def create_intent_classification_agent():
     """Cria e compila o grafo LangGraph de classificação de intenção."""
     workflow = StateGraph(IntentClassificationState)
     workflow.add_node("classify_intents", classify_intents)
     workflow.add_node("aggregate_intents", aggregate_intents)
+    workflow.add_node("analyze_pain_anger", analyze_pain_anger)
     workflow.add_edge(START, "classify_intents")
     workflow.add_edge("classify_intents", "aggregate_intents")
-    workflow.add_edge("aggregate_intents", END)
+    workflow.add_edge("aggregate_intents", "analyze_pain_anger")
+    workflow.add_edge("analyze_pain_anger", END)
     return workflow.compile()

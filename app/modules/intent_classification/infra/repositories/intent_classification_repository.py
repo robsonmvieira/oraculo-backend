@@ -126,8 +126,6 @@ class IntentClassificationRepository:
                 primary_intent=cls_data["primary_intent"],
                 secondary_intent=cls_data.get("secondary_intent"),
                 confidence=cls_data.get("confidence", "medium"),
-                sentiment=cls_data.get("sentiment"),
-                topic_keyword=cls_data.get("topic_keyword"),
             )
             self.db.add(classification)
         self.db.commit()
@@ -141,8 +139,8 @@ class IntentClassificationRepository:
                 intent_category=summary_data["category"],
                 post_count=summary_data["post_count"],
                 description=summary_data.get("description"),
-                top_subreddits=summary_data.get("top_subreddits"),
                 sample_posts=summary_data.get("sample_posts"),
+                top_subreddits=summary_data.get("top_subreddits"),
                 subcategories=summary_data.get("subcategories"),
                 topic_keywords=summary_data.get("topic_keywords"),
                 rank=summary_data.get("rank"),
