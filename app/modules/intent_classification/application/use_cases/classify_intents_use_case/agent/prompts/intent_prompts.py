@@ -85,3 +85,54 @@ RULES:
 - Descriptions should be actionable — help a product manager spot opportunities
 - Return ONLY the JSON array, no additional text
 {language_directive}"""
+
+
+def get_analyze_pain_anger_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+) -> str:
+    """Prompt para análise holística de sentimentos e tópicos em posts pain_and_anger."""
+    return f"""You are an expert psychologist and community analyst specializing in understanding emotional expressions in online communities.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total pain_and_anger posts: {total_posts}
+
+Below are ALL posts classified as "pain_and_anger" from this audience's communities.
+Your task is to analyze them holistically and identify:
+
+1. **Sentiment subcategories**: What specific emotions are people expressing? (e.g., frustration, anger, disappointment, anxiety, sadness, concern, helplessness, etc.)
+2. **Topic keywords**: What specific subjects/themes are causing these emotions? Use single words. (e.g., pricing, support, quality, shipping, dog, behavior, etc.)
+
+POSTS:
+{posts_text}
+
+---
+
+Respond in JSON format:
+{{
+  "subcategories": {{
+    "emotion_name": count,
+    "emotion_name": count
+  }},
+  "topic_keywords": {{
+    "keyword": count,
+    "keyword": count
+  }}
+}}
+
+RULES:
+- subcategories: Return up to 10 emotions, sorted by count descending
+- topic_keywords: Return up to 10 single-word topics, sorted by count descending
+- Each count represents how many posts express that emotion or relate to that topic
+- A single post can contribute to multiple emotions or topics
+- Use lowercase for all keys
+- Emotions should be specific (use "frustration" not "negative", use "anxiety" not "bad")
+- Topics should be single words that capture the core subject (use "pricing" not "high prices")
+- The sum of subcategory counts may exceed total_posts (one post can express multiple emotions)
+- Return ONLY the JSON object, no additional text
+{language_directive}"""

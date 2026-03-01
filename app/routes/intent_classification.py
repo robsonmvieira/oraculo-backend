@@ -150,8 +150,10 @@ def list_intents(
                 "post_count": s.post_count,
                 "percentage": percentage,
                 "description": s.description,
-                "top_subreddits": s.top_subreddits or [],
                 "sample_posts": s.sample_posts or [],
+                "top_subreddits": s.top_subreddits or [],
+                "subcategories": s.subcategories or {},
+                "topic_keywords": s.topic_keywords or {},
                 "rank": s.rank,
             }
         )

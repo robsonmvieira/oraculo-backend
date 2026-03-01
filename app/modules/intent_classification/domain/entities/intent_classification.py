@@ -102,10 +102,12 @@ class IntentSummary(Base):
     intent_category = Column(String(30), nullable=False)
     post_count = Column(Integer, nullable=False)
     description = Column(Text, nullable=True)
-    top_subreddits = Column(JSON, nullable=True)  # [{"name": "sub", "count": N}]
     sample_posts = Column(
         JSON, nullable=True
-    )  # [{"title": "...", "subreddit": "...", "score": N}]
+    )  # [{"title": "...", "subreddit": "..."}]
+    top_subreddits = Column(JSON, nullable=True)  # [{"name": "r/dogs", "count": 20}]
+    subcategories = Column(JSON, nullable=True)  # {"frustration": 15, "anger": 4, ...}
+    topic_keywords = Column(JSON, nullable=True)  # {"dog": 15, "behavior": 8, ...}
     rank = Column(Integer, nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

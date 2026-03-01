@@ -31,9 +31,11 @@ class IntentAggregation(TypedDict):
     category: str
     post_count: int
     description: str | None
-    top_subreddits: list[dict]  # [{"name": "...", "count": N}]
-    sample_posts: list[dict]  # [{"title": "...", "subreddit": "...", "score": N}]
+    sample_posts: list[dict]  # [{"title": "...", "subreddit": "..."}]
     rank: int
+    subcategories: dict | None  # {"frustration": 15, "anger": 4} — só pain_and_anger
+    topic_keywords: dict | None  # {"dog": 15, "behavior": 8} — só pain_and_anger
+    top_subreddits: list[dict] | None  # [{"name": "r/dogs", "count": 20}] — só pain_and_anger  # {"dog": 15, "behavior": 8} — só pain_and_anger  # {"dog": 15, "behavior": 8} — só pain_and_anger
 
 
 class IntentClassificationState(TypedDict):
