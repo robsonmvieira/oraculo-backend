@@ -21,6 +21,7 @@ from app.routes.topic_chat import router as topic_chat_router
 from app.routes.theme_analysis import router as theme_analysis_router
 from app.routes.intent_classification import router as intent_classification_router
 from app.routes.topic_alerts import router as topic_alerts_router
+from app.routes.content_suggestions import router as content_suggestions_router
 
 __all__ = [
     "auth_router",
@@ -42,4 +43,5 @@ __all__ = [
     "theme_analysis_router",
     "intent_classification_router",
     "topic_alerts_router",
+    "content_suggestions_router",
 ]

@@ -26,6 +26,7 @@ from app.routes import (
     topic_chat_router,
     topic_snapshots_router,
     topics_router,
+    content_suggestions_router,
 )
 
 logging.basicConfig(
@@ -93,6 +94,7 @@ app.include_router(topic_chat_router)
 app.include_router(theme_analysis_router)
 app.include_router(intent_classification_router)
 app.include_router(topic_alerts_router)
+app.include_router(content_suggestions_router)
 
 
 @app.get("/")
