@@ -12,6 +12,7 @@ class PostForClassification(TypedDict):
     selftext: str
     score: int
     num_comments: int
+    permalink: str
 
 
 class ClassifiedPost(TypedDict):
@@ -35,7 +36,8 @@ class IntentAggregation(TypedDict):
     rank: int
     subcategories: dict | None  # {"frustration": 15, "anger": 4} — só pain_and_anger
     topic_keywords: dict | None  # {"dog": 15, "behavior": 8} — só pain_and_anger
-    top_subreddits: list[dict] | None  # [{"name": "r/dogs", "count": 20}] — só pain_and_anger  # {"dog": 15, "behavior": 8} — só pain_and_anger  # {"dog": 15, "behavior": 8} — só pain_and_anger
+    top_subreddits: list[dict] | None
+    pain_patterns: list[dict] | None  # Padrões de dor agrupados — só pain_and_anger  # [{"name": "r/dogs", "count": 20}] — só pain_and_anger  # {"dog": 15, "behavior": 8} — só pain_and_anger  # {"dog": 15, "behavior": 8} — só pain_and_anger
 
 
 class IntentClassificationState(TypedDict):

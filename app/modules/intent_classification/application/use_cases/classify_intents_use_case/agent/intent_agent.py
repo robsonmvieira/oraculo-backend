@@ -15,6 +15,7 @@ from app.modules.intent_classification.application.use_cases.classify_intents_us
     get_aggregate_intents_prompt,
     get_analyze_pain_anger_prompt,
     get_classify_intents_prompt,
+    get_pain_patterns_prompt,
 )
 from app.modules.intent_classification.application.use_cases.classify_intents_use_case.agent.state import (
     ClassifiedPost,
@@ -221,6 +222,7 @@ def aggregate_intents(state: IntentClassificationState) -> dict:
                 "subcategories": None,
                 "topic_keywords": None,
                 "top_subreddits": None,
+                "pain_patterns": None,
             }
         )
 
@@ -289,6 +291,7 @@ def analyze_pain_anger(state: IntentClassificationState) -> dict:
     Envia TODOS os posts classificados como pain_and_anger ao LLM em uma única chamada
     para obter distribuições agregadas de sentimentos e topic keywords.
     Também computa top_subreddits (de quais comunidades vêm os posts pain_and_anger).
+    Opcionalmente, agrupa posts em padrões de dor comportamentais (segunda chamada LLM).
     """
     aggregations = state.get("intent_aggregations", [])
     classified = state.get("classified_posts", [])
@@ -352,6 +355,79 @@ def analyze_pain_anger(state: IntentClassificationState) -> dict:
     else:
         topic_keywords = None
 
+    # --- Pain Patterns (segunda chamada LLM) ---
+    pain_patterns = []
+    if len(pain_posts) >= 3:
+        # Lookup de posts completos (com selftext, score, num_comments, permalink)
+        full_posts_map = {p["id"]: p for p in state.get("posts", [])}
+
+        # Montar texto rico para o prompt (inclui selftext)
+        rich_posts = [
+            full_posts_map[p["post_id"]]
+            for p in pain_posts
+            if p["post_id"] in full_posts_map
+        ]
+        patterns_text = _build_posts_batch_text(rich_posts)
+
+        patterns_prompt = get_pain_patterns_prompt(
+            audience_name=state["audience_name"],
+            period_start=state["period_start"],
+            period_end=state["period_end"],
+            posts_text=patterns_text,
+            total_posts=len(pain_posts),
+            language_directive=language_directive,
+        )
+
+        try:
+            patterns_response = llm.invoke(patterns_prompt)
+            raw_patterns = _parse_json_response(
+                extract_response_text(patterns_response)
+            )
+
+            # Enriquecer cada padrão com métricas e submissions
+            for pattern in raw_patterns:
+                submissions = []
+                total_upvotes = 0
+                total_comments = 0
+                for pid in pattern.get("post_ids", []):
+                    fp = full_posts_map.get(pid)
+                    if not fp:
+                        continue
+                    submissions.append(
+                        {
+                            "title": fp["title"],
+                            "body": (fp.get("selftext") or "")[:500],
+                            "subreddit": f"r/{fp['subreddit']}",
+                            "score": fp.get("score", 0),
+                            "num_comments": fp.get("num_comments", 0),
+                            "permalink": fp.get("permalink", ""),
+                        }
+                    )
+                    total_upvotes += fp.get("score", 0)
+                    total_comments += fp.get("num_comments", 0)
+
+                if submissions:
+                    pain_patterns.append(
+                        {
+                            "name": pattern.get("name", ""),
+                            "emoji": pattern.get("emoji", ""),
+                            "post_count": len(submissions),
+                            "total_upvotes": total_upvotes,
+                            "total_comments": total_comments,
+                            "submissions": submissions,
+                        }
+                    )
+
+            pain_patterns.sort(key=lambda x: x["post_count"], reverse=True)
+            logger.info(
+                "Pain patterns: %d patterns identified from %d posts",
+                len(pain_patterns),
+                len(pain_posts),
+            )
+        except Exception:
+            logger.exception("Failed to extract pain patterns, continuing without them")
+            pain_patterns = []
+
     # Atualizar a agregação de pain_and_anger
     updated = []
     for agg in aggregations:
@@ -361,6 +437,7 @@ def analyze_pain_anger(state: IntentClassificationState) -> dict:
                 "subcategories": subcategories,
                 "topic_keywords": topic_keywords,
                 "top_subreddits": top_subreddits,
+                "pain_patterns": pain_patterns,
             }
         updated.append(agg)
 

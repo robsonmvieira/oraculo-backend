@@ -154,6 +154,7 @@ def list_intents(
                 "top_subreddits": s.top_subreddits or [],
                 "subcategories": s.subcategories or {},
                 "topic_keywords": s.topic_keywords or {},
+                "pain_patterns": s.pain_patterns or [],
                 "rank": s.rank,
             }
         )
