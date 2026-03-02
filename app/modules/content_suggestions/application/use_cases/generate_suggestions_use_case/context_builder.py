@@ -124,11 +124,11 @@ class ContextBuilder:
             )
 
             repo = AudienceTopicRepository(self.db)
-            analysis = repo.find_latest_ready_analysis(audience_id)
+            analysis = repo.find_latest_ready(audience_id)
             if not analysis:
                 return "", [], None
 
-            topics = repo.get_topics_by_analysis(analysis.id)
+            topics = repo.get_topics(analysis.id)
             if not topics:
                 return "", [], str(analysis.id)
 
@@ -177,28 +177,27 @@ class ContextBuilder:
                 if not analysis or analysis.status != "ready":
                     continue
 
-                deep_dives = repo.get_deep_dives(analysis.id)
-                if not deep_dives:
+                dd = repo.get_deep_dive(analysis.id)
+                if not dd:
                     continue
 
                 if not first_id:
                     first_id = str(analysis.id)
                 found_any = True
 
-                for dd in deep_dives[:1]:
-                    lines.append(f"\n### Topic: {tc['topic_name']}")
-                    if dd.common_questions:
-                        qs = dd.common_questions[:5] if isinstance(dd.common_questions, list) else []
-                        if qs:
-                            lines.append(f"  Common questions: {json.dumps(qs)}")
-                    if dd.mentioned_products:
-                        prods = dd.mentioned_products[:5] if isinstance(dd.mentioned_products, list) else []
-                        if prods:
-                            lines.append(f"  Mentioned products: {json.dumps(prods)}")
-                    if dd.actionable_insights:
-                        insights = dd.actionable_insights[:3] if isinstance(dd.actionable_insights, list) else []
-                        if insights:
-                            lines.append(f"  Actionable insights: {json.dumps(insights)}")
+                lines.append(f"\n### Topic: {tc['topic_name']}")
+                if dd.common_questions:
+                    qs = dd.common_questions[:5] if isinstance(dd.common_questions, list) else []
+                    if qs:
+                        lines.append(f"  Common questions: {json.dumps(qs)}")
+                if dd.mentioned_products:
+                    prods = dd.mentioned_products[:5] if isinstance(dd.mentioned_products, list) else []
+                    if prods:
+                        lines.append(f"  Mentioned products: {json.dumps(prods)}")
+                if dd.actionable_insights:
+                    insights = dd.actionable_insights[:3] if isinstance(dd.actionable_insights, list) else []
+                    if insights:
+                        lines.append(f"  Actionable insights: {json.dumps(insights)}")
 
             return ("\n".join(lines), first_id) if found_any else ("", None)
         except Exception:
@@ -219,24 +218,23 @@ class ContextBuilder:
             if not analysis or analysis.status != "ready":
                 return "", None
 
-            patterns = repo.get_patterns(analysis.id)
-            if not patterns:
+            p = repo.get_pattern(analysis.id)
+            if not p:
                 return "", str(analysis.id)
 
             lines = ["## CROSS-TOPIC PATTERNS"]
-            for p in patterns[:3]:
-                if p.unanswered_questions:
-                    uqs = p.unanswered_questions[:5] if isinstance(p.unanswered_questions, list) else []
-                    if uqs:
-                        lines.append(f"  Unanswered questions: {json.dumps(uqs)}")
-                if p.cross_community_gaps:
-                    gaps = p.cross_community_gaps[:3] if isinstance(p.cross_community_gaps, list) else []
-                    if gaps:
-                        lines.append(f"  Cross-community gaps: {json.dumps(gaps)}")
-                if p.content_opportunities:
-                    opps = p.content_opportunities[:3] if isinstance(p.content_opportunities, list) else []
-                    if opps:
-                        lines.append(f"  Content opportunities: {json.dumps(opps)}")
+            if p.unanswered_questions:
+                uqs = p.unanswered_questions[:5] if isinstance(p.unanswered_questions, list) else []
+                if uqs:
+                    lines.append(f"  Unanswered questions: {json.dumps(uqs)}")
+            if p.cross_community_gaps:
+                gaps = p.cross_community_gaps[:3] if isinstance(p.cross_community_gaps, list) else []
+                if gaps:
+                    lines.append(f"  Cross-community gaps: {json.dumps(gaps)}")
+            if p.content_opportunities:
+                opps = p.content_opportunities[:3] if isinstance(p.content_opportunities, list) else []
+                if opps:
+                    lines.append(f"  Content opportunities: {json.dumps(opps)}")
 
             return "\n".join(lines), str(analysis.id)
         except Exception:
@@ -263,28 +261,27 @@ class ContextBuilder:
                 if not analysis or analysis.status != "ready":
                     continue
 
-                bps = repo.get_behavioral_patterns(analysis.id)
-                if not bps:
+                bp = repo.get_behavioral_pattern(analysis.id)
+                if not bp:
                     continue
 
                 if not first_id:
                     first_id = str(analysis.id)
                 found_any = True
 
-                for bp in bps[:1]:
-                    lines.append(f"\n### Topic: {tc['topic_name']}")
-                    if bp.workaround_patterns:
-                        wks = bp.workaround_patterns[:3] if isinstance(bp.workaround_patterns, list) else []
-                        if wks:
-                            lines.append(f"  Workarounds: {json.dumps(wks)}")
-                    if bp.friction_patterns:
-                        fps = bp.friction_patterns[:3] if isinstance(bp.friction_patterns, list) else []
-                        if fps:
-                            lines.append(f"  Frictions: {json.dumps(fps)}")
-                    if bp.demand_signals:
-                        ds = bp.demand_signals[:3] if isinstance(bp.demand_signals, list) else []
-                        if ds:
-                            lines.append(f"  Demand signals: {json.dumps(ds)}")
+                lines.append(f"\n### Topic: {tc['topic_name']}")
+                if bp.workaround_patterns:
+                    wks = bp.workaround_patterns[:3] if isinstance(bp.workaround_patterns, list) else []
+                    if wks:
+                        lines.append(f"  Workarounds: {json.dumps(wks)}")
+                if bp.friction_patterns:
+                    fps = bp.friction_patterns[:3] if isinstance(bp.friction_patterns, list) else []
+                    if fps:
+                        lines.append(f"  Frictions: {json.dumps(fps)}")
+                if bp.demand_signals:
+                    ds = bp.demand_signals[:3] if isinstance(bp.demand_signals, list) else []
+                    if ds:
+                        lines.append(f"  Demand signals: {json.dumps(ds)}")
 
             return ("\n".join(lines), first_id) if found_any else ("", None)
         except Exception:
@@ -311,25 +308,24 @@ class ContextBuilder:
                 if not analysis or analysis.status != "ready":
                     continue
 
-                sentiments = repo.get_sentiments(analysis.id)
-                if not sentiments:
+                s = repo.get_sentiment(analysis.id)
+                if not s:
                     continue
 
                 if not first_id:
                     first_id = str(analysis.id)
                 found_any = True
 
-                for s in sentiments[:1]:
-                    lines.append(f"\n### Topic: {tc['topic_name']}")
-                    if s.emotional_map:
-                        em = s.emotional_map[:5] if isinstance(s.emotional_map, list) else s.emotional_map
-                        lines.append(f"  Emotional map: {json.dumps(em)}")
-                    if s.pain_points:
-                        pp = s.pain_points[:5] if isinstance(s.pain_points, list) else s.pain_points
-                        lines.append(f"  Pain points: {json.dumps(pp)}")
-                    if s.sentiment_opportunities:
-                        so = s.sentiment_opportunities[:3] if isinstance(s.sentiment_opportunities, list) else s.sentiment_opportunities
-                        lines.append(f"  Opportunities: {json.dumps(so)}")
+                lines.append(f"\n### Topic: {tc['topic_name']}")
+                if s.emotional_map:
+                    em = s.emotional_map[:5] if isinstance(s.emotional_map, list) else s.emotional_map
+                    lines.append(f"  Emotional map: {json.dumps(em)}")
+                if s.pain_points:
+                    pp = s.pain_points[:5] if isinstance(s.pain_points, list) else s.pain_points
+                    lines.append(f"  Pain points: {json.dumps(pp)}")
+                if s.sentiment_opportunities:
+                    so = s.sentiment_opportunities[:3] if isinstance(s.sentiment_opportunities, list) else s.sentiment_opportunities
+                    lines.append(f"  Opportunities: {json.dumps(so)}")
 
             return ("\n".join(lines), first_id) if found_any else ("", None)
         except Exception:
@@ -406,11 +402,11 @@ class ContextBuilder:
             )
 
             repo = AudienceKeywordRepository(self.db)
-            analysis = repo.find_latest_ready_analysis(audience_id)
+            analysis = repo.find_latest_ready(audience_id)
             if not analysis:
                 return "", None
 
-            keywords = repo.get_keywords_by_analysis(analysis.id)
+            keywords = repo.get_keywords(analysis.id)
             if not keywords:
                 return "", str(analysis.id)
 
@@ -433,12 +429,18 @@ class ContextBuilder:
     def _collect_alerts(self, audience_id: UUID) -> str:
         """Coleta alertas recentes."""
         try:
-            from app.modules.topic_alerts.infra.repositories.topic_alert_repository import (
-                TopicAlertRepository,
-            )
+            from app.modules.topic_alerts.domain.entities.topic_alert import TopicAlert
 
-            repo = TopicAlertRepository(self.db)
-            alerts = repo.find_recent_by_audience(audience_id, limit=10)
+            alerts = (
+                self.db.query(TopicAlert)
+                .filter(
+                    TopicAlert.audience_id == audience_id,
+                    TopicAlert.is_dismissed == False,  # noqa: E712
+                )
+                .order_by(TopicAlert.created_at.desc())
+                .limit(10)
+                .all()
+            )
             if not alerts:
                 return ""
 
@@ -459,8 +461,12 @@ class ContextBuilder:
             from app.modules.theme_analysis.infra.repositories.theme_analysis_repository import (
                 ThemeAnalysisRepository,
             )
+            from app.modules.theme_analysis.infra.repositories.theme_summary_repository import (
+                ThemeSummaryRepository,
+            )
 
             repo = ThemeAnalysisRepository(self.db)
+            summary_repo = ThemeSummaryRepository(self.db)
             analysis = repo.find_latest_by_audience_and_window(audience_id, "week")
             if not analysis or analysis.status != "ready":
                 return ""
@@ -471,12 +477,10 @@ class ContextBuilder:
 
             lines = ["## THEME NARRATIVES"]
             for t in themes[:3]:
-                summaries = repo.get_theme_summaries(t.id)
-                if summaries:
-                    latest = summaries[0]
-                    if latest.narrative:
-                        lines.append(f"\n### {t.name}")
-                        lines.append(latest.narrative[:500])
+                summary = summary_repo.find_by_theme_id(t.id)
+                if summary and summary.narrative:
+                    lines.append(f"\n### {t.name}")
+                    lines.append(summary.narrative[:500])
 
             return "\n".join(lines) if len(lines) > 1 else ""
         except Exception:
