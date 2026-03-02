@@ -136,3 +136,49 @@ RULES:
 - The sum of subcategory counts may exceed total_posts (one post can express multiple emotions)
 - Return ONLY the JSON object, no additional text
 {language_directive}"""
+
+
+def get_pain_patterns_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+) -> str:
+    """Prompt para agrupar posts pain_and_anger em padrões de dor comportamentais."""
+    return f"""You are an expert psychologist and community analyst. Your task is to group pain & anger posts into behavioral pain patterns — recurring themes that reveal what the audience is truly struggling with.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total pain_and_anger posts: {total_posts}
+
+Below are posts classified as "pain_and_anger" from this audience's communities, including their body text for richer context.
+
+POSTS:
+{posts_text}
+
+---
+
+Group these posts into 3 to 8 behavioral pain patterns. Each pattern should represent a distinct, recurring theme of pain or frustration.
+
+Respond in JSON format:
+[
+  {{
+    "name": "Short descriptive name of the pain pattern (5-10 words)",
+    "emoji": "single emoji representing the emotional tone",
+    "post_ids": ["id1", "id2", "id3"]
+  }}
+]
+
+RULES:
+- Create 3 to 8 patterns maximum
+- Each pattern must have at least 2 posts (if total posts < 6, patterns with 1 post are acceptable)
+- Each post_id must appear in EXACTLY ONE pattern — no duplicates across patterns
+- Every post_id from the input should be assigned to a pattern
+- Pattern names should be descriptive behavioral/emotional phrases (5-10 words)
+- Use a single emoji that best represents the emotional tone of the pattern
+- Order patterns by number of posts (most posts first)
+- post_ids must match exactly the POST_ID values from the input
+- Return ONLY the JSON array, no additional text
+{language_directive}"""

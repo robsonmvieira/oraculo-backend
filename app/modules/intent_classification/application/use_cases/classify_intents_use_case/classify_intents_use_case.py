@@ -93,6 +93,7 @@ class ClassifyIntentsUseCase:
                     "selftext": tp.selftext or "",
                     "score": tp.score or 0,
                     "num_comments": tp.num_comments or 0,
+                    "permalink": tp.permalink or "",
                 }
                 for tp in theme_posts
             ]

@@ -108,6 +108,7 @@ class IntentSummary(Base):
     top_subreddits = Column(JSON, nullable=True)  # [{"name": "r/dogs", "count": 20}]
     subcategories = Column(JSON, nullable=True)  # {"frustration": 15, "anger": 4, ...}
     topic_keywords = Column(JSON, nullable=True)  # {"dog": 15, "behavior": 8, ...}
+    pain_patterns = Column(JSON, nullable=True)  # Padrões de dor agrupados
     rank = Column(Integer, nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

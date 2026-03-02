@@ -143,6 +143,7 @@ class IntentClassificationRepository:
                 top_subreddits=summary_data.get("top_subreddits"),
                 subcategories=summary_data.get("subcategories"),
                 topic_keywords=summary_data.get("topic_keywords"),
+                pain_patterns=summary_data.get("pain_patterns"),
                 rank=summary_data.get("rank"),
             )
             self.db.add(summary)
