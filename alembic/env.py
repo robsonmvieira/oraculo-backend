@@ -50,6 +50,8 @@ from app.modules.theme_analysis.domain.entities import theme  # noqa: E402
 from app.modules.intent_classification.domain.entities import intent_classification  # noqa: E402
 from app.modules.theme_analysis.domain.entities import theme_summary  # noqa: E402
 from app.modules.theme_analysis.domain.entities import theme_panel  # noqa: E402
+from app.modules.content_suggestions.domain.entities import content_suggestion  # noqa: E402
+from app.modules.content_suggestions.domain.entities import content_draft  # noqa: E402
 
 target_metadata = [Base.metadata]
 
