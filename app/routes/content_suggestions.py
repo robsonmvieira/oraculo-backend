@@ -1,6 +1,5 @@
 """Rotas para sugestões inteligentes de conteúdo."""
 
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,8 +9,14 @@ from sqlalchemy.orm import Session
 from app.modules.audiences.infra.repositories.audience_repository import (
     AudienceRepository,
 )
+from app.modules.content_suggestions.application.use_cases.produce_content_use_case.trigger_produce_use_case import (
+    TriggerProduceUseCase,
+)
 from app.modules.content_suggestions.application.use_cases.trigger_suggestions_use_case.trigger_suggestions_use_case import (
     TriggerSuggestionsUseCase,
+)
+from app.modules.content_suggestions.infra.repositories.content_draft_repository import (
+    ContentDraftRepository,
 )
 from app.modules.content_suggestions.infra.repositories.content_suggestion_repository import (
     ContentSuggestionRepository,
@@ -33,6 +38,10 @@ VALID_FEEDBACK = ("useful", "not_useful", "used")
 
 class FeedbackBody(BaseModel):
     status: str
+
+
+class ProduceBody(BaseModel):
+    target_platforms: list[str]
 
 
 def _check_ownership(audience, current_user: User) -> None:
@@ -213,8 +222,89 @@ def submit_feedback(
     }
 
 
+@router.post("/{audience_id}/content-suggestions/{suggestion_id}/produce", status_code=202)
+def produce_content(
+    audience_id: UUID,
+    suggestion_id: UUID,
+    body: ProduceBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Dispara producao de conteudo completo + imagem para as plataformas selecionadas.
+    """
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    trigger = TriggerProduceUseCase(db)
+    result = trigger.execute(
+        audience_id=audience_id,
+        suggestion_id=suggestion_id,
+        target_platforms=body.target_platforms,
+        language=current_user.preferred_language,
+    )
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    return result
+
+
+@router.get("/{audience_id}/content-suggestions/{suggestion_id}/drafts")
+def list_drafts(
+    audience_id: UUID,
+    suggestion_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lista drafts de conteudo por plataforma para uma sugestao."""
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    draft_repo = ContentDraftRepository(db)
+    drafts = draft_repo.get_drafts_by_suggestion(suggestion_id)
+
+    return {
+        "suggestion_id": str(suggestion_id),
+        "drafts": [_serialize_draft(d) for d in drafts],
+        "total": len(drafts),
+    }
+
+
+@router.get("/{audience_id}/content-suggestions/{suggestion_id}/drafts/{draft_id}")
+def get_draft(
+    audience_id: UUID,
+    suggestion_id: UUID,
+    draft_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Detalhe completo de um draft."""
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    draft_repo = ContentDraftRepository(db)
+    draft = draft_repo.get_draft_by_id(draft_id)
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft não encontrado")
+
+    return _serialize_draft(draft)
+
+
 def _serialize_suggestion(s) -> dict:
-    """Serializa uma sugestão para resposta JSON."""
+    """Serializa uma sugestao para resposta JSON."""
     return {
         "id": str(s.id),
         "rank": s.rank,
@@ -231,6 +321,7 @@ def _serialize_suggestion(s) -> dict:
         "keywords": s.keywords,
         "research_notes": s.research_notes,
         "image_prompt": s.image_prompt,
+        "image_url": s.image_url,
         "differentiation_notes": s.differentiation_notes,
         "accuracy_notes": s.accuracy_notes,
         "source_topics": s.source_topics,
@@ -238,4 +329,24 @@ def _serialize_suggestion(s) -> dict:
         "feedback_status": s.feedback_status,
         "feedback_at": s.feedback_at.isoformat() if s.feedback_at else None,
         "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+
+
+def _serialize_draft(d) -> dict:
+    """Serializa um draft para resposta JSON."""
+    return {
+        "id": str(d.id),
+        "suggestion_id": str(d.suggestion_id),
+        "platform": d.platform,
+        "status": d.status,
+        "hooks": d.hooks or [],
+        "full_draft": d.full_draft,
+        "narrative_arc": d.narrative_arc,
+        "cta": d.cta,
+        "platform_notes": d.platform_notes,
+        "hashtags": d.hashtags or [],
+        "image_url": d.image_url,
+        "image_aspect_ratio": d.image_aspect_ratio,
+        "model_used": d.model_used,
+        "created_at": d.created_at.isoformat() if d.created_at else None,
     }

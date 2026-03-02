@@ -100,6 +100,13 @@ class ContentSuggestion(Base):
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
+    image_url = Column(Text, nullable=True)
+
     analysis = relationship(
         "ContentSuggestionAnalysis", back_populates="suggestions"
+    )
+    drafts = relationship(
+        "ContentDraft",
+        back_populates="suggestion",
+        cascade="all, delete-orphan",
     )
