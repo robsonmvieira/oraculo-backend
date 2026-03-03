@@ -192,5 +192,6 @@ class StorageService:
     # ------------------------------------------------------------------ #
 
     def generate_key(self, prefix: str = "content-images", extension: str = "png") -> str:
-        """Gera chave unica para upload."""
-        return f"{prefix}/{uuid.uuid4()}.{extension}"
+        """Gera chave unica para upload com namespace do projeto."""
+        root = settings.s3_root_prefix
+        return f"{root}/{prefix}/{uuid.uuid4()}.{extension}"
