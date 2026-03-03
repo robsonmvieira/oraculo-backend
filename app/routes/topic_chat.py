@@ -2,7 +2,8 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.modules.audience_topics.infra.repositories.audience_topic_repository import (
@@ -92,11 +93,12 @@ def start_conversation(
 
 
 @router.post("/{audience_id}/topics/{topic_id}/chat/{conversation_id}/messages")
-def send_message(
+async def send_message(
     audience_id: UUID,
     topic_id: UUID,
     conversation_id: UUID,
     body: SendMessageRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ):
@@ -104,6 +106,7 @@ def send_message(
     Envia uma mensagem na conversa e recebe a resposta da IA.
 
     A IA considera todo o historico da conversa para responder.
+    Suporta SSE streaming via header Accept: text/event-stream.
     """
     audience_repo = AudienceRepository(db)
     audience = audience_repo.find_by_id(audience_id)
@@ -123,6 +126,24 @@ def send_message(
         raise HTTPException(status_code=400, detail="Conversation is archived")
 
     use_case = SendMessageUseCase(db)
+
+    # Content negotiation: SSE streaming vs JSON
+    accept = request.headers.get("accept", "")
+    if "text/event-stream" in accept:
+        return StreamingResponse(
+            use_case.execute_streaming(
+                conversation_id=conversation_id,
+                question=body.question,
+                language=current_user.preferred_language,
+            ),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     result = use_case.execute(
         conversation_id=conversation_id,
         question=body.question,

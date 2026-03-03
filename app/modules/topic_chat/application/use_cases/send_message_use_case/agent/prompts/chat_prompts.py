@@ -17,10 +17,16 @@ def topic_chat_system_prompt(
     quality_note = ""
     if context_quality == "limited":
         quality_note = (
-            "\n\nNOTE: You only have basic topic metadata (no deep dive analysis available). "
+            "\n\nNOTE: You only have basic topic metadata (no analysis data available). "
             "Be transparent about this limitation. Answer what you can based on the topic name, "
             "description, and community context, but clearly state when you don't have enough "
-            "data to give a detailed answer. Suggest the user run a Deep Dive analysis for richer results."
+            "data to give a detailed answer. Suggest the user run analyses (Deep Dive, Sentiment, Patterns) for richer results."
+        )
+    elif context_quality == "partial":
+        quality_note = (
+            "\n\nNOTE: You have partial analysis data. Some analyses (deep dive, sentiment, or patterns) "
+            "are not yet available. Answer based on what you have, but note when additional analyses "
+            "could provide deeper insights."
         )
 
     prompt = f"""You are an expert analyst specialized in online community research.

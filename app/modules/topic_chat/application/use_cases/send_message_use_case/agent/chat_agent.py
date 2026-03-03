@@ -26,56 +26,111 @@ def _get_llm() -> ChatOpenAI:
 
 def build_context(state: TopicChatState) -> dict:
     """Validates context availability and determines quality."""
-    deep_dive_context = state.get("deep_dive_context")
+    sources = []
+    if state.get("deep_dive_context"):
+        sources.append("deep_dive")
+    if state.get("sentiment_context"):
+        sources.append("sentiment")
+    if state.get("pattern_context"):
+        sources.append("patterns")
 
-    if deep_dive_context:
-        logger.info(
-            "Topic Chat: rich context available for topic '%s'",
-            state.get("topic_name"),
-        )
-        return {"context_quality": "rich"}
+    if len(sources) >= 2:
+        quality = "rich"
+    elif len(sources) == 1:
+        quality = "partial"
+    else:
+        quality = "limited"
 
     logger.info(
-        "Topic Chat: limited context for topic '%s' (no deep dive)",
+        "Topic Chat: context quality '%s' for topic '%s' (sources: %s)",
+        quality,
         state.get("topic_name"),
+        sources,
     )
-    return {"context_quality": "limited"}
+    return {"context_quality": quality}
 
 
-def answer_with_history(state: TopicChatState) -> dict:
-    """LLM answers considering the full conversation history."""
-    deep_dive_context = state.get("deep_dive_context")
-    context_quality = state.get("context_quality", "limited")
+def build_prompt_messages(
+    topic_name: str,
+    topic_description: str,
+    audience_name: str,
+    community_names: list[str],
+    language: str,
+    deep_dive_context: str | None,
+    sentiment_context: str | None,
+    pattern_context: str | None,
+    context_quality: str,
+    conversation_summary: str | None,
+    messages: list[dict],
+) -> list:
+    """Build the LangChain message list for the LLM call.
 
+    Shared between the synchronous agent node and the streaming path.
+    """
+    context_parts = []
     if deep_dive_context:
-        context_text = deep_dive_context
+        context_parts.append(f"=== DEEP DIVE ANALYSIS ===\n{deep_dive_context}")
+    if sentiment_context:
+        context_parts.append(f"=== SENTIMENT ANALYSIS ===\n{sentiment_context}")
+    if pattern_context:
+        context_parts.append(f"=== PATTERN ANALYSIS ===\n{pattern_context}")
+
+    if context_parts:
+        context_text = "\n\n".join(context_parts)
     else:
         context_text = (
-            f"Topic: {state['topic_name']}\n"
-            f"Description: {state.get('topic_description', 'N/A')}\n"
-            f"Communities: {', '.join(f'r/{c}' for c in state.get('community_names', []))}"
+            f"Topic: {topic_name}\n"
+            f"Description: {topic_description or 'N/A'}\n"
+            f"Communities: {', '.join(f'r/{c}' for c in community_names)}"
         )
 
     system_prompt = topic_chat_system_prompt(
-        topic_name=state["topic_name"],
-        topic_description=state.get("topic_description", ""),
-        audience_name=state["audience_name"],
-        community_names=state.get("community_names", []),
+        topic_name=topic_name,
+        topic_description=topic_description,
+        audience_name=audience_name,
+        community_names=community_names,
         context_text=context_text,
         context_quality=context_quality,
-        language=state.get("language", "en"),
+        language=language,
     )
 
-    # Build message list: system + conversation history
     langchain_messages = [SystemMessage(content=system_prompt)]
 
-    for msg in state.get("messages", []):
+    if conversation_summary:
+        langchain_messages.append(
+            SystemMessage(
+                content=f"PREVIOUS CONVERSATION SUMMARY:\n{conversation_summary}"
+            )
+        )
+
+    for msg in messages:
         role = msg.get("role", "user")
         content = msg.get("content", "")
         if role == "user":
             langchain_messages.append(HumanMessage(content=content))
         elif role == "assistant":
             langchain_messages.append(AIMessage(content=content))
+
+    return langchain_messages
+
+
+def answer_with_history(state: TopicChatState) -> dict:
+    """LLM answers considering the full conversation history."""
+    context_quality = state.get("context_quality", "limited")
+
+    langchain_messages = build_prompt_messages(
+        topic_name=state["topic_name"],
+        topic_description=state.get("topic_description", ""),
+        audience_name=state["audience_name"],
+        community_names=state.get("community_names", []),
+        language=state.get("language", "en"),
+        deep_dive_context=state.get("deep_dive_context"),
+        sentiment_context=state.get("sentiment_context"),
+        pattern_context=state.get("pattern_context"),
+        context_quality=context_quality,
+        conversation_summary=state.get("conversation_summary"),
+        messages=state.get("messages", []),
+    )
 
     llm = _get_llm()
 
