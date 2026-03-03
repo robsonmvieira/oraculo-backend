@@ -83,7 +83,10 @@ def create_audience(
         user_id=current_user.id,
         subreddit_names=request.subreddit_names,
     )
-    audience = use_case.execute(input_data)
+    try:
+        audience = use_case.execute(input_data)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     return vars(audience)
 
 
@@ -131,7 +134,10 @@ def update_audience(
         description=request.description,
         subreddit_names=request.subreddit_names,
     )
-    updated = use_case.execute(audience_id, input_data)
+    try:
+        updated = use_case.execute(audience_id, input_data)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     return vars(updated)
 
 
@@ -174,7 +180,10 @@ def add_community_to_audience(
     _check_ownership(audience, current_user)
 
     use_case = AddCommunityToAudienceUseCase(db)
-    added = use_case.execute(audience_id, request.subreddit_name)
+    try:
+        added = use_case.execute(audience_id, request.subreddit_name)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     if not added:
         raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
     return {"added": True, "subreddit_name": request.subreddit_name}
