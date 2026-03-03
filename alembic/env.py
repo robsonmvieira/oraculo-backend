@@ -53,6 +53,9 @@ from app.modules.theme_analysis.domain.entities import theme_panel  # noqa: E402
 from app.modules.content_suggestions.domain.entities import content_suggestion  # noqa: E402
 from app.modules.content_suggestions.domain.entities import content_draft  # noqa: E402
 from app.modules.shared.domain.entities import uploaded_file  # noqa: E402
+from app.modules.intent_ask.domain.entities import intent_ask_log  # noqa: E402
+from app.modules.intent_chat.domain.entities import intent_conversation  # noqa: E402
+from app.modules.intent_chat.domain.entities import intent_conversation_message  # noqa: E402
 
 target_metadata = [Base.metadata]
 
