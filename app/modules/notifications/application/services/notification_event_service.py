@@ -24,6 +24,8 @@ _TYPE_LABELS = {
     "theme_analysis": "Theme Analysis",
     "intent_classification": "Intent Classification",
     "theme_summary": "Theme Summary",
+    "communities_changed": "Communities Update",
+    "communities_validation_failed": "Community Validation",
 }
 
 
@@ -54,14 +56,16 @@ class NotificationEventService:
         )
 
         channel = f"notifications:{user_id}"
-        payload = json.dumps({
-            "id": str(notification.id),
-            "type": type_,
-            "title": title,
-            "message": message,
-            "metadata": metadata or {},
-            "created_at": notification.created_at.isoformat(),
-        })
+        payload = json.dumps(
+            {
+                "id": str(notification.id),
+                "type": type_,
+                "title": title,
+                "message": message,
+                "metadata": metadata or {},
+                "created_at": notification.created_at.isoformat(),
+            }
+        )
 
         try:
             self._redis.publish(channel, payload)
@@ -83,7 +87,9 @@ class NotificationEventService:
         """Notificação de análise concluída com sucesso."""
         label = _TYPE_LABELS.get(analysis_type, analysis_type)
         context = (
-            f" for topic '{topic_name}'" if topic_name else f" for audience '{audience_name}'"
+            f" for topic '{topic_name}'"
+            if topic_name
+            else f" for audience '{audience_name}'"
         )
 
         metadata = {
@@ -117,7 +123,9 @@ class NotificationEventService:
         """Notificação de análise que falhou."""
         label = _TYPE_LABELS.get(analysis_type, analysis_type)
         context = (
-            f" for topic '{topic_name}'" if topic_name else f" for audience '{audience_name}'"
+            f" for topic '{topic_name}'"
+            if topic_name
+            else f" for audience '{audience_name}'"
         )
 
         metadata = {

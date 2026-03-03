@@ -36,11 +36,7 @@ class AudienceRepository:
         """
         Busca audiência por ID.
         """
-        return (
-            self.db.query(Audience)
-            .filter(Audience.id == audience_id)
-            .first()
-        )
+        return self.db.query(Audience).filter(Audience.id == audience_id).first()
 
     def find_all(self, user_id: UUID | None = None) -> list[Audience]:
         """
@@ -146,10 +142,13 @@ class AudienceRepository:
         self,
         audience_id: UUID,
         subreddit_names: list[str],
-    ) -> list[AudienceCommunity]:
+    ) -> tuple[list[AudienceCommunity], set[str], set[str]]:
         """
         Sincroniza comunidades de uma audiência com a lista desejada.
         Remove as que não estão na lista, adiciona as novas.
+
+        Returns:
+            (communities, to_add, to_remove)
         """
         current = self.get_communities(audience_id)
         current_names = {c.subreddit_name for c in current}
@@ -165,12 +164,22 @@ class AudienceRepository:
             ).delete(synchronize_session="fetch")
 
         for name in to_add:
-            self.db.add(
-                AudienceCommunity(audience_id=audience_id, subreddit_name=name)
-            )
+            self.db.add(AudienceCommunity(audience_id=audience_id, subreddit_name=name))
 
         self.db.commit()
-        return self.get_communities(audience_id)
+        return self.get_communities(audience_id), to_add, to_remove
+
+    def remove_communities_by_names(
+        self,
+        audience_id: UUID,
+        subreddit_names: list[str],
+    ) -> None:
+        """Remove comunidades específicas de uma audiência."""
+        self.db.query(AudienceCommunity).filter(
+            AudienceCommunity.audience_id == audience_id,
+            AudienceCommunity.subreddit_name.in_([n.lower() for n in subreddit_names]),
+        ).delete(synchronize_session="fetch")
+        self.db.commit()
 
     def get_communities(self, audience_id: UUID) -> list[AudienceCommunity]:
         """
