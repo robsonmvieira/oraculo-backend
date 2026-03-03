@@ -24,3 +24,6 @@ wheels/
 *.rest
 *.pdf
 docs/*.md
+.serena/
+rest
+.DS_Store
