@@ -42,6 +42,17 @@ class TopicConversationMessageRepository:
             .all()
         )
 
+    def list_all_by_conversation(
+        self, conversation_id: UUID
+    ) -> list[TopicConversationMessage]:
+        """Lista todas as mensagens de uma conversa em ordem cronologica (sem limit)."""
+        return (
+            self.db.query(TopicConversationMessage)
+            .filter(TopicConversationMessage.conversation_id == conversation_id)
+            .order_by(TopicConversationMessage.created_at.asc())
+            .all()
+        )
+
     def count_by_conversation(self, conversation_id: UUID) -> int:
         """Conta mensagens de uma conversa."""
         return (
