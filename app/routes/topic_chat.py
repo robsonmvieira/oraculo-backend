@@ -151,7 +151,8 @@ async def send_message(
     )
 
     if result.get("error"):
-        raise HTTPException(status_code=400, detail=result["error"])
+        detail = result.get("detail", result["error"])
+        raise HTTPException(status_code=400, detail=detail)
 
     return result
 
