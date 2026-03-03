@@ -5,7 +5,6 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.modules.similar_communities.domain.entities.user_feedback import (
-    ContextType,
     FeedbackType,
     UserCommunityFeedback,
 )
