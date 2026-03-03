@@ -128,6 +128,7 @@ class ProduceContentUseCase:
                 image_prompt=suggestion.image_prompt,
                 suggestion_id=suggestion_id,
                 platforms=target_platforms,
+                user_id=audience.user_id,
             )
 
             # 6. Salvar drafts com model_used
@@ -207,6 +208,7 @@ class ProduceContentUseCase:
         image_prompt: str | None,
         suggestion_id: UUID,
         platforms: list[str],
+        user_id: UUID | None = None,
     ) -> str | None:
         """Gera imagem via Imagen e faz upload para S3."""
         if not image_prompt:
@@ -219,6 +221,10 @@ class ProduceContentUseCase:
             )
             from app.modules.shared.application.services.storage_service import (
                 StorageService,
+            )
+            from app.modules.shared.domain.entities.uploaded_file import UploadedFile
+            from app.modules.shared.infra.repositories.uploaded_file_repository import (
+                UploadedFileRepository,
             )
 
             # Determinar aspect ratio (usar o mais versatil)
@@ -236,6 +242,20 @@ class ProduceContentUseCase:
                 prefix=f"content-images/{suggestion_id}"
             )
             url = storage.upload(data=image_bytes, key=key)
+
+            # Registrar arquivo na tabela uploaded_files
+            try:
+                file_record = UploadedFile(
+                    key=key,
+                    url=url,
+                    content_type="image/png",
+                    size_bytes=len(image_bytes),
+                    uploaded_by=user_id,
+                )
+                UploadedFileRepository(self.db).save(file_record)
+                logger.info("Image registered in uploaded_files: %s", key)
+            except Exception:
+                logger.exception("Failed to register image in uploaded_files, URL still valid")
 
             logger.info("Image uploaded: %s", url)
             return url
