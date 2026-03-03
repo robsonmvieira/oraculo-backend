@@ -52,6 +52,7 @@ from app.modules.theme_analysis.domain.entities import theme_summary  # noqa: E4
 from app.modules.theme_analysis.domain.entities import theme_panel  # noqa: E402
 from app.modules.content_suggestions.domain.entities import content_suggestion  # noqa: E402
 from app.modules.content_suggestions.domain.entities import content_draft  # noqa: E402
+from app.modules.shared.domain.entities import uploaded_file  # noqa: E402
 
 target_metadata = [Base.metadata]
 
