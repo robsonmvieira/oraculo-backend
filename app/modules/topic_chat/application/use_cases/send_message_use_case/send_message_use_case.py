@@ -36,6 +36,7 @@ from app.modules.topic_sentiment.infra.repositories.topic_sentiment_repository i
 logger = logging.getLogger(__name__)
 
 MAX_HISTORY_MESSAGES = 40
+MAX_MESSAGES_PER_CONVERSATION = 100
 
 
 class SendMessageUseCase:
@@ -75,6 +76,11 @@ class SendMessageUseCase:
 
         communities = self.audience_repo.get_communities(conversation.audience_id)
         community_names = [c.subreddit_name for c in communities]
+
+        # Check message limit before persisting
+        limit_error = self._check_message_limit(conversation_id)
+        if limit_error:
+            return limit_error
 
         # Persist user message
         self.message_repo.create(
@@ -142,12 +148,22 @@ class SendMessageUseCase:
         )
         self.conversation_repo.touch(conversation_id)
 
-        # Auto-generate title from first question
-        if not conversation.title:
-            title = question[:100].strip()
-            if len(question) > 100:
-                title += "..."
-            self.conversation_repo.update_title(conversation_id, title)
+        # Generate smart title and/or follow-up suggestions
+        needs_title = not conversation.title
+        title_and_suggestions = self._generate_title_and_suggestions(
+            question=question,
+            answer=answer,
+            topic_name=topic.name,
+            language=language,
+            generate_title=needs_title,
+        )
+
+        if needs_title and title_and_suggestions.get("title"):
+            self.conversation_repo.update_title(
+                conversation_id, title_and_suggestions["title"]
+            )
+
+        follow_up_suggestions = title_and_suggestions.get("follow_up_suggestions", [])
 
         suggestion = None
         if final_context_quality == "limited":
@@ -168,6 +184,7 @@ class SendMessageUseCase:
             "message_id": str(assistant_msg.id),
             "conversation_id": str(conversation_id),
             "suggestion": suggestion,
+            "follow_up_suggestions": follow_up_suggestions,
         }
 
     async def execute_streaming(
@@ -202,6 +219,12 @@ class SendMessageUseCase:
 
         communities = self.audience_repo.get_communities(conversation.audience_id)
         community_names = [c.subreddit_name for c in communities]
+
+        # Check message limit before persisting
+        limit_error = self._check_message_limit(conversation_id)
+        if limit_error:
+            yield f"event: error\ndata: {json.dumps(limit_error)}\n\n"
+            return
 
         # Persist user message
         self.message_repo.create(
@@ -274,11 +297,22 @@ class SendMessageUseCase:
         self.conversation_repo.update_context_quality(conversation_id, context_quality)
         self.conversation_repo.touch(conversation_id)
 
-        if not conversation.title:
-            title = question[:100].strip()
-            if len(question) > 100:
-                title += "..."
-            self.conversation_repo.update_title(conversation_id, title)
+        # Generate smart title and/or follow-up suggestions
+        needs_title = not conversation.title
+        title_and_suggestions = self._generate_title_and_suggestions(
+            question=question,
+            answer=answer,
+            topic_name=topic.name,
+            language=language,
+            generate_title=needs_title,
+        )
+
+        if needs_title and title_and_suggestions.get("title"):
+            self.conversation_repo.update_title(
+                conversation_id, title_and_suggestions["title"]
+            )
+
+        follow_up_suggestions = title_and_suggestions.get("follow_up_suggestions", [])
 
         suggestion = None
         if context_quality == "limited":
@@ -299,6 +333,7 @@ class SendMessageUseCase:
             "message_id": str(assistant_msg.id),
             "conversation_id": str(conversation_id),
             "suggestion": suggestion,
+            "follow_up_suggestions": follow_up_suggestions,
         }
         yield f"event: done\ndata: {json.dumps(done_data)}\n\n"
 
@@ -560,3 +595,104 @@ class SendMessageUseCase:
         )
 
         return response.content.strip()
+
+    # ------------------------------------------------------------------
+    # Message limit check
+    # ------------------------------------------------------------------
+
+    def _check_message_limit(self, conversation_id: UUID) -> dict | None:
+        """
+        Verifica se a conversa atingiu o limite de mensagens.
+
+        Returns:
+            dict com erro se limite atingido, None caso contrario
+        """
+        count = self.message_repo.count_by_conversation(conversation_id)
+        if count >= MAX_MESSAGES_PER_CONVERSATION:
+            return {
+                "error": "message_limit_reached",
+                "detail": (
+                    f"This conversation has reached the maximum of "
+                    f"{MAX_MESSAGES_PER_CONVERSATION} messages. "
+                    f"Please create a new conversation to continue."
+                ),
+                "message_count": count,
+            }
+        return None
+
+    # ------------------------------------------------------------------
+    # Smart title and follow-up suggestions
+    # ------------------------------------------------------------------
+
+    def _generate_title_and_suggestions(
+        self,
+        question: str,
+        answer: str,
+        topic_name: str,
+        language: str,
+        generate_title: bool = False,
+    ) -> dict:
+        """
+        Gera titulo inteligente e/ou sugestoes de follow-up via LLM.
+
+        Quando generate_title=True (1a mensagem), gera titulo + sugestoes
+        em uma unica chamada. Nas demais mensagens, gera apenas sugestoes.
+
+        Returns:
+            dict com 'title' (str | None) e 'follow_up_suggestions' (list[str])
+        """
+        if generate_title:
+            instruction = (
+                "Based on the user's question and the AI answer about the topic "
+                f"'{topic_name}', generate:\n"
+                "1. A concise conversation title (max 60 chars, descriptive, no quotes)\n"
+                "2. Exactly 3 follow-up question suggestions (max 80 chars each)\n\n"
+                "Respond in valid JSON:\n"
+                '{"title": "...", "follow_up_suggestions": ["...", "...", "..."]}'
+            )
+        else:
+            instruction = (
+                "Based on the user's question and the AI answer about the topic "
+                f"'{topic_name}', generate exactly 3 follow-up question suggestions "
+                "(max 80 chars each) that would deepen the analysis.\n\n"
+                "Respond in valid JSON:\n"
+                '{"follow_up_suggestions": ["...", "...", "..."]}'
+            )
+
+        from app.modules.shared.application.helpers.language_directive import (
+            get_language_directive,
+        )
+
+        language_directive = get_language_directive(language)
+
+        llm = ChatOpenAI(
+            model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
+            max_completion_tokens=256,
+            model_kwargs={"response_format": {"type": "json_object"}},
+        )
+
+        prompt_messages = [
+            SystemMessage(content=instruction + language_directive),
+            HumanMessage(
+                content=f"USER QUESTION: {question}\n\nAI ANSWER: {answer[:1500]}"
+            ),
+        ]
+
+        try:
+            response = llm.invoke(prompt_messages)
+            data = json.loads(response.content)
+            return {
+                "title": data.get("title") if generate_title else None,
+                "follow_up_suggestions": data.get("follow_up_suggestions", [])[:3],
+            }
+        except Exception:
+            logger.warning("Failed to generate title/suggestions, using fallback")
+            fallback_title = None
+            if generate_title:
+                fallback_title = question[:100].strip()
+                if len(question) > 100:
+                    fallback_title += "..."
+            return {
+                "title": fallback_title,
+                "follow_up_suggestions": [],
+            }
