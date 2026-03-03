@@ -8,10 +8,6 @@ from sqlalchemy.orm import Session
 from app.modules.similar_communities.application.services.embedding_service import (
     EmbeddingService,
 )
-from app.modules.similar_communities.domain.entities.user_feedback import (
-    ContextType,
-    FeedbackType,
-)
 from app.modules.similar_communities.infra.repositories.community_embedding_repository import (
     CommunityEmbeddingRepository,
 )
@@ -208,7 +204,7 @@ class SimilarCommunitiesService:
                     description=community.description,
                     subscribers=community.subscribers,
                     similarity_score=final_score,
-                    reason=f"Similar to your audience",
+                    reason="Similar to your audience",
                 )
             )
 

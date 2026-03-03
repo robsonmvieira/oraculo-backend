@@ -27,35 +27,26 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 # Importar o Base e todos os models
-from app.modules.shared.infra.database.orm.metadata import Base  # noqa: E402
-from app.modules.identity.domain.entities import user  # noqa: E402
-from app.modules.audiences.domain.entities import audience  # noqa: E402
-from app.modules.shared.domain.entities import community_stats  # noqa: E402
-from app.modules.shared.domain.entities import llm_cache  # noqa: E402
-from app.modules.shared.domain.entities import related_sub  # noqa: E402
-from app.modules.similar_communities.domain.entities import community_embedding  # noqa: E402
-from app.modules.similar_communities.domain.entities import user_feedback  # noqa: E402
-from app.modules.audience_templates.domain.entities import audience_template  # noqa: E402
-from app.modules.audience_topics.domain.entities import audience_topic  # noqa: E402
-from app.modules.audience_keywords.domain.entities import audience_keyword  # noqa: E402
-from app.modules.topic_deep_dive.domain.entities import topic_deep_dive  # noqa: E402
-from app.modules.topic_patterns.domain.entities import topic_pattern  # noqa: E402
-from app.modules.topic_sentiment.domain.entities import topic_sentiment  # noqa: E402
-from app.modules.topic_behavioral_patterns.domain.entities import topic_behavioral_pattern  # noqa: E402
-from app.modules.topic_snapshots.domain.entities import topic_snapshot  # noqa: E402
-from app.modules.notifications.domain.entities import notification  # noqa: E402
-from app.modules.topic_chat.domain.entities import topic_conversation  # noqa: E402
-from app.modules.topic_chat.domain.entities import topic_conversation_message  # noqa: E402
-from app.modules.theme_analysis.domain.entities import theme  # noqa: E402
-from app.modules.intent_classification.domain.entities import intent_classification  # noqa: E402
-from app.modules.theme_analysis.domain.entities import theme_summary  # noqa: E402
-from app.modules.theme_analysis.domain.entities import theme_panel  # noqa: E402
-from app.modules.content_suggestions.domain.entities import content_suggestion  # noqa: E402
-from app.modules.content_suggestions.domain.entities import content_draft  # noqa: E402
-from app.modules.shared.domain.entities import uploaded_file  # noqa: E402
-from app.modules.intent_ask.domain.entities import intent_ask_log  # noqa: E402
-from app.modules.intent_chat.domain.entities import intent_conversation  # noqa: E402
-from app.modules.intent_chat.domain.entities import intent_conversation_message  # noqa: E402
+from app.modules.shared.infra.database.orm.metadata import Base  # noqa: E402, F401
+from app.modules.identity.domain.entities import user  # noqa: E402, F401
+from app.modules.audiences.domain.entities import audience  # noqa: E402, F401
+from app.modules.shared.domain.entities import community_stats  # noqa: E402, F401
+from app.modules.shared.domain.entities import llm_cache  # noqa: E402, F401
+from app.modules.shared.domain.entities import related_sub  # noqa: E402, F401
+from app.modules.similar_communities.domain.entities import community_embedding  # noqa: E402, F401
+from app.modules.similar_communities.domain.entities import user_feedback  # noqa: E402, F401
+from app.modules.audience_templates.domain.entities import audience_template  # noqa: E402, F401
+from app.modules.audience_topics.domain.entities import audience_topic  # noqa: E402, F401
+from app.modules.audience_topics.domain.entities import audience_topic_analysis  # noqa: E402, F401
+from app.modules.topic_deep_dive.domain.entities import topic_deep_dive  # noqa: E402, F401
+from app.modules.notifications.domain.entities import analysis_notification  # noqa: E402, F401
+from app.modules.topic_sentiment.domain.entities import topic_sentiment_analysis  # noqa: E402, F401
+from app.modules.topic_patterns.domain.entities import topic_pattern_analysis  # noqa: E402, F401
+from app.modules.topic_chat.domain.entities import topic_conversation  # noqa: E402, F401
+from app.modules.topic_chat.domain.entities import topic_conversation_message  # noqa: E402, F401
+from app.modules.intent_ask.domain.entities import intent_ask_log  # noqa: E402, F401
+from app.modules.content_suggestions.domain.entities import content_draft  # noqa: E402, F401
+from app.modules.weekly_theme.domain.entities import weekly_theme_analysis  # noqa: E402, F401
 
 target_metadata = [Base.metadata]
 

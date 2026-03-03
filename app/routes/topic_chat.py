@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.modules.audience_topics.infra.repositories.audience_topic_repository import (
@@ -15,6 +15,9 @@ from app.modules.audiences.infra.repositories.audience_repository import (
 from app.modules.identity.dependencies import get_current_user
 from app.modules.identity.domain.entities.user import User
 from app.modules.shared.infra.database.database import get_db
+from app.modules.topic_chat.application.use_cases.export_conversation_use_case import (
+    ExportConversationUseCase,
+)
 from app.modules.topic_chat.application.use_cases.send_message_use_case.send_message_use_case import (
     SendMessageUseCase,
 )
@@ -135,6 +138,7 @@ async def send_message(
                 conversation_id=conversation_id,
                 question=body.question,
                 language=current_user.preferred_language,
+                user_id=current_user.id,
             ),
             media_type="text/event-stream",
             headers={
@@ -148,10 +152,18 @@ async def send_message(
         conversation_id=conversation_id,
         question=body.question,
         language=current_user.preferred_language,
+        user_id=current_user.id,
     )
 
     if result.get("error"):
         detail = result.get("detail", result["error"])
+        error_type = result["error"]
+        if error_type == "rate_limit_exceeded":
+            raise HTTPException(
+                status_code=429,
+                detail=detail,
+                headers={"Retry-After": str(result.get("retry_after_seconds", 60))},
+            )
         raise HTTPException(status_code=400, detail=detail)
 
     return result
@@ -243,6 +255,49 @@ def list_messages(
             for m in messages
         ],
     }
+
+
+
+@router.get("/{audience_id}/topics/{topic_id}/chat/{conversation_id}/export")
+def export_conversation(
+    audience_id: UUID,
+    topic_id: UUID,
+    conversation_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """
+    Exporta uma conversa completa como arquivo markdown.
+
+    Retorna o historico formatado para download.
+    """
+    audience_repo = AudienceRepository(db)
+    audience = audience_repo.find_by_id(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail=AUDIENCE_NOT_FOUND)
+
+    _check_ownership(audience, current_user)
+
+    conversation_repo = TopicConversationRepository(db)
+    conversation = conversation_repo.find_by_id(conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail=CONVERSATION_NOT_FOUND)
+
+    _check_conversation_ownership(conversation, current_user)
+
+    use_case = ExportConversationUseCase(db)
+    result = use_case.execute(conversation_id=conversation_id)
+
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail=result["error"])
+
+    return Response(
+        content=result["content"],
+        media_type="text/markdown",
+        headers={
+            "Content-Disposition": f'attachment; filename="{result["filename"]}"',
+        },
+    )
 
 
 @router.delete("/{audience_id}/topics/{topic_id}/chat/{conversation_id}")

@@ -105,7 +105,7 @@ def main():
 
         # Estatísticas
         stats = embedding_service.get_embedding_stats()
-        print(f"\nEstatísticas:")
+        print("\nEstatísticas:")
         print(f"  - Com embedding: {stats['total_with_embeddings']}")
         print(f"  - Sem embedding: {stats['total_without_embeddings']}")
         print(f"  - Modelo: {stats['model']}")

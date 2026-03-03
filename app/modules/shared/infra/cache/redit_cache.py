@@ -48,3 +48,13 @@ class RedisCache:
         Verifica se uma chave existe no cache
         """
         return bool(self.client.exists(key))
+
+    def increment(self, key: str, ttl: int = 60) -> int:
+        """
+        Incrementa contador atomico com expiracao.
+        Retorna o valor atual apos incremento.
+        """
+        count = self.client.incr(key)
+        if count == 1:
+            self.client.expire(key, ttl)
+        return count

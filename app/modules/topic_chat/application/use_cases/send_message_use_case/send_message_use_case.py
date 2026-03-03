@@ -29,6 +29,7 @@ from app.modules.topic_deep_dive.infra.repositories.topic_deep_dive_repository i
 from app.modules.topic_patterns.infra.repositories.topic_pattern_repository import (
     TopicPatternRepository,
 )
+from app.modules.shared.infra.cache.redit_cache import RedisCache
 from app.modules.topic_sentiment.infra.repositories.topic_sentiment_repository import (
     TopicSentimentRepository,
 )
@@ -37,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 MAX_HISTORY_MESSAGES = 40
 MAX_MESSAGES_PER_CONVERSATION = 100
+RATE_LIMIT_MESSAGES = int(os.getenv("RATE_LIMIT_MESSAGES", "20"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 
 
 class SendMessageUseCase:
@@ -55,6 +58,7 @@ class SendMessageUseCase:
         conversation_id: UUID,
         question: str,
         language: str = "en",
+        user_id: UUID | None = None,
     ) -> dict:
         """
         Envia uma mensagem na conversa e retorna a resposta da IA.
@@ -65,6 +69,12 @@ class SendMessageUseCase:
         conversation = self.conversation_repo.find_by_id(conversation_id)
         if not conversation:
             return {"error": "Conversation not found"}
+
+        # Rate limit check (before any heavy work)
+        effective_user_id = user_id or conversation.user_id
+        rate_error = self._check_rate_limit(effective_user_id)
+        if rate_error:
+            return rate_error
 
         topic = self.topic_repo.get_topic_by_id(conversation.topic_id)
         if not topic:
@@ -192,6 +202,7 @@ class SendMessageUseCase:
         conversation_id: UUID,
         question: str,
         language: str = "en",
+        user_id: UUID | None = None,
     ):
         """
         Streaming version of execute(). Yields SSE-formatted strings.
@@ -205,6 +216,13 @@ class SendMessageUseCase:
         conversation = self.conversation_repo.find_by_id(conversation_id)
         if not conversation:
             yield f"event: error\ndata: {json.dumps({'error': 'Conversation not found'})}\n\n"
+            return
+
+        # Rate limit check (before any heavy work)
+        effective_user_id = user_id or conversation.user_id
+        rate_error = self._check_rate_limit(effective_user_id)
+        if rate_error:
+            yield f"event: error\ndata: {json.dumps(rate_error)}\n\n"
             return
 
         topic = self.topic_repo.get_topic_by_id(conversation.topic_id)
@@ -618,6 +636,37 @@ class SendMessageUseCase:
                 ),
                 "message_count": count,
             }
+        return None
+
+    # ------------------------------------------------------------------
+    # Rate limiting
+    # ------------------------------------------------------------------
+
+    def _check_rate_limit(self, user_id: UUID) -> dict | None:
+        """
+        Verifica rate limit por usuario via Redis.
+
+        Fail-open: se Redis estiver indisponivel, permite o request.
+
+        Returns:
+            dict com erro se limite atingido, None caso contrario
+        """
+        try:
+            cache = RedisCache()
+            key = f"rate_limit:topic_chat:{user_id}"
+            count = cache.increment(key, ttl=RATE_LIMIT_WINDOW_SECONDS)
+            if count > RATE_LIMIT_MESSAGES:
+                return {
+                    "error": "rate_limit_exceeded",
+                    "detail": (
+                        f"You have exceeded the limit of {RATE_LIMIT_MESSAGES} "
+                        f"messages per minute. Please wait before sending "
+                        f"another message."
+                    ),
+                    "retry_after_seconds": RATE_LIMIT_WINDOW_SECONDS,
+                }
+        except Exception:
+            logger.warning("Rate limit check failed (Redis unavailable), allowing request")
         return None
 
     # ------------------------------------------------------------------
