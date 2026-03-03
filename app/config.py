@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # AWS/S3 settings
     s3_bucket_name: Optional[str] = None
+    s3_root_prefix: str = "oraculo-backend"
     aws_region: str = "us-east-1"
     s3_access_key: Optional[str] = None
     s3_secret_key: Optional[str] = None
