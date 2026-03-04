@@ -111,7 +111,7 @@ class SendIntentMessageUseCase:
 
             if pain_summary:
                 intent_context = self._build_intent_context(
-                    pain_summary, theme_summaries
+                    pain_summary, conversation.intent_category, theme_summaries
                 )
                 context_quality = "rich"
 
@@ -175,44 +175,63 @@ class SendIntentMessageUseCase:
             "suggestion": suggestion,
         }
 
+    _CATEGORY_LABELS = {
+        "pain_and_anger": {
+            "overview": "PAIN & ANGER OVERVIEW",
+            "subcategories": "EMOTION BREAKDOWN",
+            "topic_keywords": "PAIN TOPIC KEYWORDS",
+            "patterns": "BEHAVIORAL PAIN PATTERNS",
+            "top_subreddits": "TOP SUBREDDITS FOR PAIN & ANGER",
+        },
+        "solution_request": {
+            "overview": "SOLUTION REQUESTS OVERVIEW",
+            "subcategories": "SOLUTION TYPE BREAKDOWN",
+            "topic_keywords": "SOLUTION TOPIC KEYWORDS",
+            "patterns": "SOLUTION REQUEST PATTERNS",
+            "top_subreddits": "TOP SUBREDDITS FOR SOLUTION REQUESTS",
+        },
+    }
+
     def _build_intent_context(
         self,
-        pain_summary,
+        intent_summary,
+        intent_category: str = "pain_and_anger",
         theme_summaries: list | None = None,
     ) -> str:
         """Builds a text context from intent classification + theme data."""
+        labels = self._CATEGORY_LABELS.get(intent_category, self._CATEGORY_LABELS["pain_and_anger"])
         sections = []
 
         # 1. Description
-        if pain_summary.description:
-            sections.append(f"PAIN & ANGER OVERVIEW:\n{pain_summary.description}")
+        if intent_summary.description:
+            sections.append(f"{labels['overview']}:\n{intent_summary.description}")
 
-        # 2. Subcategories (emotions breakdown)
-        if pain_summary.subcategories:
-            lines = ["EMOTION BREAKDOWN:"]
-            for emotion, count in sorted(
-                pain_summary.subcategories.items(),
+        # 2. Subcategories
+        if intent_summary.subcategories:
+            lines = [f"{labels['subcategories']}:"]
+            for name, count in sorted(
+                intent_summary.subcategories.items(),
                 key=lambda x: x[1],
                 reverse=True,
             ):
-                lines.append(f"- {emotion}: {count} posts")
+                lines.append(f"- {name}: {count} posts")
             sections.append("\n".join(lines))
 
         # 3. Topic Keywords
-        if pain_summary.topic_keywords:
-            lines = ["PAIN TOPIC KEYWORDS:"]
+        if intent_summary.topic_keywords:
+            lines = [f"{labels['topic_keywords']}:"]
             for keyword, count in sorted(
-                pain_summary.topic_keywords.items(),
+                intent_summary.topic_keywords.items(),
                 key=lambda x: x[1],
                 reverse=True,
             )[:20]:
                 lines.append(f"- {keyword}: {count} mentions")
             sections.append("\n".join(lines))
 
-        # 4. Pain Patterns (behavioral groups)
-        if pain_summary.pain_patterns:
-            lines = ["BEHAVIORAL PAIN PATTERNS:"]
-            for pattern in pain_summary.pain_patterns:
+        # 4. Patterns (behavioral groups)
+        if intent_summary.pain_patterns:
+            lines = [f"{labels['patterns']}:"]
+            for pattern in intent_summary.pain_patterns:
                 name = pattern.get("name", "")
                 emoji = pattern.get("emoji", "")
                 post_count = pattern.get("post_count", 0)
@@ -234,18 +253,18 @@ class SendIntentMessageUseCase:
             sections.append("\n".join(lines))
 
         # 5. Top Subreddits
-        if pain_summary.top_subreddits:
-            lines = ["TOP SUBREDDITS FOR PAIN & ANGER:"]
-            for sr in pain_summary.top_subreddits:
+        if intent_summary.top_subreddits:
+            lines = [f"{labels['top_subreddits']}:"]
+            for sr in intent_summary.top_subreddits:
                 name = sr.get("name", "")
                 count = sr.get("count", 0)
                 lines.append(f"- {name}: {count} posts")
             sections.append("\n".join(lines))
 
         # 6. Sample Posts
-        if pain_summary.sample_posts:
+        if intent_summary.sample_posts:
             lines = ["SAMPLE POSTS:"]
-            for post in pain_summary.sample_posts[:10]:
+            for post in intent_summary.sample_posts[:10]:
                 title = post.get("title", "")
                 subreddit = post.get("subreddit", "")
                 lines.append(f'- [r/{subreddit}] "{title}"')

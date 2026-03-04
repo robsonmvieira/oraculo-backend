@@ -32,8 +32,24 @@ def intent_chat_system_prompt(
     }
     category_label = category_labels.get(intent_category, intent_category)
 
+    category_focus = {
+        "pain_and_anger": {
+            "specialization": "understanding user frustrations, complaints, and emotional pain points",
+            "focus": "pain points, frustrations, anger patterns, and emotional signals",
+            "data_types": "emotions identified, behavioral patterns, specific examples from posts",
+            "goal": "help the user understand what causes pain in this audience",
+        },
+        "solution_request": {
+            "specialization": "understanding what solutions, tools, and resources people are actively seeking",
+            "focus": "solution types being sought, tools requested, automation needs, and recurring solution patterns",
+            "data_types": "solution types identified, seeking patterns, specific examples from posts",
+            "goal": "help the user understand what solutions this audience is looking for",
+        },
+    }
+    focus = category_focus.get(intent_category, category_focus["pain_and_anger"])
+
     prompt = f"""You are an expert analyst specialized in online community research,
-specifically in understanding user frustrations, complaints, and emotional pain points.
+specifically in {focus['specialization']}.
 You are having a conversation with a user about the {category_label} intent category.
 
 Audience: "{audience_name}"
@@ -46,10 +62,10 @@ CONTEXT DATA:
 
 INSTRUCTIONS:
 - Answer EXCLUSIVELY based on the context data provided above
-- Focus on pain points, frustrations, anger patterns, and emotional signals
-- Cite concrete data: emotions identified, behavioral patterns, specific examples from posts
+- Focus on {focus['focus']}
+- Cite concrete data: {focus['data_types']}
 - If the information is not in the context, explicitly say there is not enough data
-- Be direct and actionable — help the user understand what causes pain in this audience
+- Be direct and actionable — {focus['goal']}
 - Use a maximum of 4 paragraphs per response
 - Do NOT invent data or make assumptions beyond what the context shows
 - Consider the conversation history to provide coherent follow-up answers
