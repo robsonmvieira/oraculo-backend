@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.modules.topic_alerts.application.helpers.alert_rules import (
+    classify_cross_platform_severity,
     classify_growth_severity,
     classify_new_theme_severity,
     classify_new_topic_severity,
@@ -305,6 +306,81 @@ class EvaluateAlertsUseCase:
         )
 
         return {t.name.strip().lower() for t in themes}
+
+    def evaluate_youtube_validation(
+        self,
+        audience_id: UUID,
+        validation_id: UUID,
+        user_id: UUID,
+        audience_name: str,
+        analysis_result: dict,
+    ) -> int:
+        """
+        Avalia resultado de validação YouTube e gera alertas cross-platform.
+
+        Args:
+            audience_id: ID da audiência
+            validation_id: ID da validação YouTube
+            user_id: ID do dono da audiência
+            audience_name: Nome da audiência
+            analysis_result: Resultado completo da análise LLM
+
+        Returns:
+            Número de alertas gerados
+        """
+        topics = analysis_result.get("topics", [])
+        if not topics:
+            return 0
+
+        alerts_data: list[dict] = []
+
+        for topic in topics:
+            topic_name = topic.get("topic_name", "")
+            traction_score = topic.get("traction_score", 0)
+            has_content_gap = bool(topic.get("content_gap"))
+
+            severity = classify_cross_platform_severity(
+                traction_score, has_content_gap
+            )
+            if not severity:
+                continue
+
+            gap_note = " (content gap detected)" if has_content_gap else ""
+            alerts_data.append(
+                {
+                    "audience_id": audience_id,
+                    "user_id": user_id,
+                    "alert_type": "cross_platform_validated",
+                    "severity": severity,
+                    "title": f"Cross-platform: {topic_name}",
+                    "message": (
+                        f"Topic '{topic_name}' in audience '{audience_name}' "
+                        f"has YouTube traction score {traction_score}/10"
+                        f"{gap_note}."
+                    ),
+                    "metadata_": {
+                        "topic_name": topic_name,
+                        "audience_id": str(audience_id),
+                        "audience_name": audience_name,
+                        "validation_id": str(validation_id),
+                        "traction_score": traction_score,
+                        "has_content_gap": has_content_gap,
+                    },
+                }
+            )
+
+        if not alerts_data:
+            return 0
+
+        count = self.alert_repo.create_batch(alerts_data)
+        self._send_notifications(user_id, audience_id, audience_name, alerts_data)
+
+        logger.info(
+            "Generated %d cross-platform alerts for audience '%s'",
+            count,
+            audience_name,
+        )
+        return count
 
     def _send_notifications(
         self,

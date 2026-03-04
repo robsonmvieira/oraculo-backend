@@ -25,6 +25,7 @@ from app.routes.content_suggestions import router as content_suggestions_router
 from app.routes.intent_ask import router as intent_ask_router
 from app.routes.intent_chat import router as intent_chat_router
 from app.routes.semantic_search import router as semantic_search_router
+from app.routes.youtube_validation import router as youtube_validation_router
 
 __all__ = [
     "auth_router",
@@ -50,4 +51,5 @@ __all__ = [
     "intent_ask_router",
     "intent_chat_router",
     "semantic_search_router",
+    "youtube_validation_router",
 ]
