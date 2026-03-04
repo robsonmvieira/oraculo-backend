@@ -27,6 +27,7 @@ _TYPE_LABELS = {
     "communities_changed": "Communities Update",
     "communities_validation_failed": "Community Validation",
     "youtube_validation": "YouTube Validation",
+    "product_intelligence": "Product Intelligence",
 }
 
 

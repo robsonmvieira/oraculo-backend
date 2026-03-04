@@ -31,6 +31,7 @@ from app.routes import (
     intent_chat_router,
     semantic_search_router,
     youtube_validation_router,
+    product_intelligence_router,
 )
 
 logging.basicConfig(
@@ -103,6 +104,7 @@ app.include_router(intent_ask_router)
 app.include_router(intent_chat_router)
 app.include_router(semantic_search_router)
 app.include_router(youtube_validation_router)
+app.include_router(product_intelligence_router)
 
 
 @app.get("/")

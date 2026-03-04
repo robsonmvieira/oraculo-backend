@@ -18,6 +18,7 @@ class TaskType(str, Enum):
     TOPIC_QA = "topic_qa"
     INTENT_QA = "intent_qa"
     SEMANTIC_SEARCH = "semantic_search"
+    PRODUCT_INTELLIGENCE = "product_intelligence"
 
 
 # TTL em horas para cada tipo de task
@@ -30,6 +31,7 @@ TTL_CONFIG = {
     TaskType.TOPIC_QA: 48,                    # 48 horas
     TaskType.INTENT_QA: 48,                   # 48 horas
     TaskType.SEMANTIC_SEARCH: 24,             # 24 horas
+    TaskType.PRODUCT_INTELLIGENCE: 24,       # 24 horas
 }
 
 
