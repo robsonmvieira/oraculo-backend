@@ -3,7 +3,6 @@ import os
 
 from langchain_openai import ChatOpenAI
 
-from app.modules.shared.application.services.llm_factory import extract_response_text
 
 from app.modules.topics.application.use_cases.get_community_details_use_case.agent.state import (
     CommunityAnalyzerState,
