@@ -1,6 +1,6 @@
 """Estado do agente de classificação de intenção."""
 
-from typing import TypedDict
+from typing import Any, TypedDict
 
 
 class PostForClassification(TypedDict):
@@ -53,6 +53,7 @@ class IntentClassificationState(TypedDict):
     period_start: str
     period_end: str
     language: str
+    reddit_provider: Any  # GenericRedditProvider para buscar comentários
 
     # Populated by nodes
     classified_posts: list[ClassifiedPost]

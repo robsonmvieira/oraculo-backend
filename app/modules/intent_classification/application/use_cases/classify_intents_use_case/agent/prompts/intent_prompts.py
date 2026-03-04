@@ -145,15 +145,33 @@ def get_pain_patterns_prompt(
     posts_text: str,
     total_posts: int,
     language_directive: str = "",
+    has_comments: bool = False,
 ) -> str:
     """Prompt para agrupar posts pain_and_anger em padrões de dor comportamentais."""
+    comments_context = ""
+    comments_json_fields = ""
+    comments_rules = ""
+
+    if has_comments:
+        comments_context = """
+Note: Some posts include their top community comments (sorted by score). Use these comments to better understand the true severity and breadth of each pain pattern."""
+
+        comments_json_fields = """,
+    "validation_score": "high|medium|low — based on how many commenters validate/echo the same pain",
+    "suggested_coping": ["solution or coping strategy mentioned in comments"]"""
+
+        comments_rules = """
+- validation_score: Analyze comments to determine if other users validate the same pain. "high" = multiple commenters agree/echo ("same here", "I deal with this too"), "medium" = some agreement, "low" = little or no agreement in comments
+- suggested_coping: Extract any solutions, workarounds, or coping strategies mentioned by commenters. Return empty array if none found
+- Use comments to better judge which patterns represent widespread community pain vs isolated complaints"""
+
     return f"""You are an expert psychologist and community analyst. Your task is to group pain & anger posts into behavioral pain patterns — recurring themes that reveal what the audience is truly struggling with.
 
 Audience: "{audience_name}"
 Period: {period_start} to {period_end}
 Total pain_and_anger posts: {total_posts}
 
-Below are posts classified as "pain_and_anger" from this audience's communities, including their body text for richer context.
+Below are posts classified as "pain_and_anger" from this audience's communities, including their body text for richer context.{comments_context}
 
 POSTS:
 {posts_text}
@@ -167,7 +185,7 @@ Respond in JSON format:
   {{
     "name": "Short descriptive name of the pain pattern (5-10 words)",
     "emoji": "single emoji representing the emotional tone",
-    "post_ids": ["id1", "id2", "id3"]
+    "post_ids": ["id1", "id2", "id3"]{comments_json_fields}
   }}
 ]
 
@@ -180,7 +198,7 @@ RULES:
 - Use a single emoji that best represents the emotional tone of the pattern
 - Order patterns by number of posts (most posts first)
 - post_ids must match exactly the POST_ID values from the input
-- Return ONLY the JSON array, no additional text
+- Return ONLY the JSON array, no additional text{comments_rules}
 {language_directive}"""
 
 
@@ -242,15 +260,34 @@ def get_solution_patterns_prompt(
     posts_text: str,
     total_posts: int,
     language_directive: str = "",
+    has_comments: bool = False,
 ) -> str:
     """Prompt para agrupar posts solution_request em padrões de busca de solução."""
+    comments_context = ""
+    comments_json_fields = ""
+    comments_rules = ""
+
+    if has_comments:
+        comments_context = """
+Note: Some posts include their top community comments (sorted by score). Use these comments to identify which tools, services, and products the community actually recommends — not just what the OP is asking for."""
+
+        comments_json_fields = """,
+    "recommended_solutions": ["specific tool, service, or product recommended in comments"],
+    "community_consensus": "strong|moderate|weak|divided — level of agreement on best solution"
+"""
+
+        comments_rules = """
+- recommended_solutions: Extract specific tools, libraries, services, or products recommended by commenters. Return empty array if none found
+- community_consensus: Based on comment agreement — "strong" = most commenters agree on a solution, "moderate" = some agreement, "weak" = few recommendations, "divided" = conflicting opinions
+- Use comments to distinguish between what people ask for and what the community actually recommends"""
+
     return f"""You are an expert product strategist and community analyst. Your task is to group solution request posts into solution-seeking patterns — recurring themes that reveal what the audience is actively trying to solve or build.
 
 Audience: "{audience_name}"
 Period: {period_start} to {period_end}
 Total solution_request posts: {total_posts}
 
-Below are posts classified as "solution_request" from this audience's communities, including their body text for richer context.
+Below are posts classified as "solution_request" from this audience's communities, including their body text for richer context.{comments_context}
 
 POSTS:
 {posts_text}
@@ -264,7 +301,7 @@ Respond in JSON format:
   {{
     "name": "Short descriptive name of the solution pattern (5-10 words)",
     "emoji": "single emoji representing the type of solution sought",
-    "post_ids": ["id1", "id2", "id3"]
+    "post_ids": ["id1", "id2", "id3"]{comments_json_fields}
   }}
 ]
 
@@ -277,7 +314,7 @@ RULES:
 - Use a single emoji that best represents the type of solution (e.g., 🔧 tools, 📊 analytics, 🤖 automation, 📋 templates)
 - Order patterns by number of posts (most posts first)
 - post_ids must match exactly the POST_ID values from the input
-- Return ONLY the JSON array, no additional text
+- Return ONLY the JSON array, no additional text{comments_rules}
 {language_directive}"""
 
 
