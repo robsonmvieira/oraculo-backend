@@ -1,6 +1,6 @@
 """add youtube validation tables
 
-Revision ID: b2c3d4e5f6a7
+Revision ID: 28a8453991e9
 Revises: a1b2c3d4e5f7
 Create Date: 2026-03-04 14:00:00.000000
 
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = "b2c3d4e5f6a7"
+revision: str = "28a8453991e9"
 down_revision: Union[str, Sequence[str], None] = "a1b2c3d4e5f7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
