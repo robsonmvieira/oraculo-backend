@@ -1,0 +1,228 @@
+###############################################################################
+# YouTube Validation (Cross-Platform Intelligence)
+#
+# Validação cross-platform que cruza dados do Reddit com YouTube.
+# Coleta vídeos, comentários e transcrições do YouTube para cada tópico
+# da audiência e analisa via LLM para identificar tração, gaps de conteúdo,
+# sentimento e oportunidades.
+#
+# FLUXO:
+#   1. GET  /youtube-validation              → primeira vez retorna "no_analysis"
+#   2. POST /youtube-validation              → dispara validação em background (202)
+#   3. GET  /youtube-validation              → durante processamento retorna "processing"
+#   4. GET  /youtube-validation              → após ~3-5min retorna "ready" com dados
+#   5. GET  /youtube-validation/{topic}/videos → browse vídeos coletados por tópico
+#
+# PRÉ-REQUISITOS:
+#   - Audiência deve ter tópicos extraídos (Issue #29 — Topic Analysis)
+#   - Variável YOUTUBE_API_KEY no .env (sem ela, search retorna vazio mas não quebra)
+#
+# NOTA: A análise é sob demanda. O modo de análise (unified vs per_topic)
+#       é detectado automaticamente pelo provider LLM configurado:
+#       - Gemini (2M tokens): análise unificada (todos os tópicos em 1 chamada)
+#       - OpenAI (128K tokens): análise por tópico (1 chamada por tópico)
+###############################################################################
+
+@base_url = http://localhost:8000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNWYzOTZhOC1iYmU2LTRkOWItOGI5OS1jMGE1ZTc3ZjgwNzEiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcxOTQxMTcxfQ.eQXVNA6w1uo_eX6KgHkwkVaQvJ5Nt65PNrGeqvB6n1E
+
+# IDs de exemplo — substitua pelos seus
+@audience_id = e9458348-6cad-4ba6-bf3e-87674d035613
+
+###############################################################################
+# 1. CONSULTAR VALIDAÇÃO YOUTUBE
+###############################################################################
+
+### Consultar validação (primeira vez → status: "no_analysis")
+# Retorna o estado atual da validação YouTube mais recente da audiência.
+#
+# Respostas possíveis:
+#   - "no_analysis": Nenhuma validação existe. Use POST para iniciar.
+#   - "processing":  Validação em andamento. Aguarde 3-5 minutos.
+#   - "ready":       Validação pronta. Retorna analysis_data + summary.
+#   - "failed":      Validação falhou. Verifique error_message.
+#
+# Quando status = "ready", os campos retornados são:
+#   - validation_id:  UUID da validação
+#   - completed_at:   Timestamp de conclusão
+#   - model_used:     Modelo LLM utilizado (ex: gemini-2.0-flash)
+#   - total_videos:   Total de vídeos coletados
+#   - total_comments: Total de comentários coletados
+#   - analysis_data:  Resultado da análise cross-platform (ver exemplo abaixo)
+#   - summary:        Resumo executivo com métricas agregadas
+#
+GET {{base_url}}/audiences/{{audience_id}}/youtube-validation
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 2. DISPARAR VALIDAÇÃO YOUTUBE
+###############################################################################
+
+### Disparar validação (status: 202 Accepted)
+# Cria uma nova validação e a processa em background.
+# Se já existe uma validação com o mesmo fingerprint (mesmos tópicos),
+# retorna o status sem criar outra.
+#
+# O processamento envolve:
+#   1. Para cada tópico da audiência:
+#      - YouTube API v3 search (busca vídeos relevantes)
+#      - yt-dlp metadata (views, likes, tags, duration)
+#      - yt-dlp comments (com 2 fallback strategies)
+#      - youtube-transcript-api (transcrição com fallback de idioma)
+#   2. Persistência dos vídeos coletados no banco
+#   3. Preparação dos dados Reddit dos tópicos
+#   4. Análise LLM cross-platform (unified ou per_topic)
+#   5. Geração de summary executivo
+#   6. Avaliação de alertas cross-platform
+#   7. Notificação SSE ao usuário
+#
+# Tempo estimado: ~3-5 minutos (depende da quantidade de tópicos)
+#
+# Resposta:
+#   {status: "processing", message: "...", validation_id: "uuid", topics_count: N}
+#
+POST {{base_url}}/audiences/{{audience_id}}/youtube-validation
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 3. FORÇAR REPROCESSAMENTO (ignora fingerprint)
+###############################################################################
+
+### Forçar nova validação (ignora cache de fingerprint)
+# Útil quando você quer re-analisar mesmo que os tópicos não tenham mudado.
+# O parâmetro force=true ignora a verificação de fingerprint duplicado.
+#
+POST {{base_url}}/audiences/{{audience_id}}/youtube-validation?force=true
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 4. CONSULTAR VALIDAÇÃO APÓS PROCESSAMENTO
+###############################################################################
+
+### Consultar validação (após ~3-5min → status: "ready")
+# Mesma chamada do passo 1. Quando a análise termina, retorna os dados.
+#
+# Exemplo de resposta (resumido):
+# {
+#   "status": "ready",
+#   "validation_id": "uuid",
+#   "audience_id": "uuid",
+#   "completed_at": "2026-03-04T18:30:00Z",
+#   "model_used": "gemini-2.0-flash",
+#   "total_videos": 45,
+#   "total_comments": 1230,
+#   "analysis_data": {
+#     "topics": [
+#       {
+#         "topic_name": "FastAPI vs Django",
+#         "traction_score": 8.5,
+#         "sentiment_comparison": {
+#           "reddit": "positive",
+#           "youtube": "positive",
+#           "alignment": "high"
+#         },
+#         "content_gap": true,
+#         "content_saturated": false,
+#         "product_mentions": ["FastAPI", "Django REST Framework"],
+#         "audience_overlap_score": 7.2,
+#         "opportunity_insights": "High demand on Reddit with limited YouTube coverage..."
+#       }
+#     ],
+#     "cross_platform_summary": {
+#       "total_topics_with_traction": 8,
+#       "avg_traction_score": 6.4,
+#       "content_gaps_found": 3,
+#       "key_findings": ["..."],
+#       "best_opportunity": "FastAPI vs Django",
+#       "biggest_divergence": "..."
+#     }
+#   },
+#   "summary": {
+#     "topics_analyzed": 15,
+#     "topics_with_youtube_traction": 8,
+#     "content_gaps_found": 3,
+#     "avg_traction_score": 6.4,
+#     "total_videos_analyzed": 45,
+#     "total_comments_analyzed": 1230
+#   }
+# }
+#
+GET {{base_url}}/audiences/{{audience_id}}/youtube-validation
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 5. BROWSE VÍDEOS POR TÓPICO
+###############################################################################
+
+### Listar vídeos coletados para um tópico específico
+# Retorna os vídeos YouTube coletados durante a validação para o tópico.
+# O topic_name deve ser URL-encoded (espaços → %20).
+#
+# Exemplo de resposta:
+# {
+#   "status": "ready",
+#   "validation_id": "uuid",
+#   "topic_name": "FastAPI vs Django",
+#   "videos_count": 12,
+#   "videos": [
+#     {
+#       "id": "uuid",
+#       "video_id": "dQw4w9WgXcQ",
+#       "title": "FastAPI vs Django in 2026",
+#       "channel_name": "Tech With Tim",
+#       "views": 125000,
+#       "likes": 4200,
+#       "duration_seconds": 1820,
+#       "tags": ["python", "fastapi", "django"],
+#       "description": "In this video we compare...",
+#       "comments_count": 89,
+#       "has_transcript": true,
+#       "transcript_lang": "en",
+#       "published_at": "2026-02-15T14:00:00Z"
+#     }
+#   ]
+# }
+#
+GET {{base_url}}/audiences/{{audience_id}}/youtube-validation/FastAPI%20vs%20Django/videos
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 6. CENÁRIOS DE ERRO
+###############################################################################
+
+### Audiência inexistente (→ 404)
+GET {{base_url}}/audiences/00000000-0000-0000-0000-000000000000/youtube-validation
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Sem autenticação (→ 401)
+GET {{base_url}}/audiences/{{audience_id}}/youtube-validation
+content-type: application/json
+
+###
+
+### Tópico sem vídeos coletados
+# Se a validação não está ready ou o tópico não existe, retorna lista vazia.
+GET {{base_url}}/audiences/{{audience_id}}/youtube-validation/TopicThatDoesNotExist/videos
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 7. VERIFICAR ALERTAS CROSS-PLATFORM
+###############################################################################
+
+### Consultar alertas da audiência (inclui cross_platform_validated)
+# Após a validação YouTube, tópicos com alta tração geram alertas:
+#   - traction_score >= 7 → severity: "warning"
+#   - traction_score > 8 + content_gap → severity: "critical"
+#
+GET {{base_url}}/audiences/{{audience_id}}/alerts
+content-type: application/json
+Authorization: Bearer {{token}}
