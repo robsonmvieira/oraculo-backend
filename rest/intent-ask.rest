@@ -1,0 +1,283 @@
+###############################################################################
+# Intent Ask — Q&A com IA sobre categorias de intenção
+#
+# Permite ao usuário fazer perguntas livres sobre uma categoria de intenção
+# e receber respostas baseadas nos dados de classificação de intenção
+# (subcategories, keywords, patterns) + análise de temas (narrativas).
+#
+# PRÉ-REQUISITO: Intent Classification (Theme 02) precisa ter sido executada
+#   com status "ready" para a janela desejada (week/month).
+#   Se não foi executada, o agente responde com context_quality: "limited".
+#
+# FLUXO:
+#   1. POST /themes/intents/{category}/ask → envia pergunta, recebe resposta (~3-5s)
+#
+# CONTEXTO RICO (context_quality: "rich"):
+#   O agente recebe quando a classificação de intenção existe e está "ready".
+#   Os labels do contexto variam por categoria:
+#
+#   pain_and_anger:
+#     - PAIN & ANGER OVERVIEW, EMOTION BREAKDOWN, PAIN TOPIC KEYWORDS,
+#       BEHAVIORAL PAIN PATTERNS, TOP SUBREDDITS FOR PAIN & ANGER
+#
+#   solution_request:
+#     - SOLUTION REQUESTS OVERVIEW, SOLUTION TYPE BREAKDOWN, SOLUTION TOPIC KEYWORDS,
+#       SOLUTION REQUEST PATTERNS, TOP SUBREDDITS FOR SOLUTION REQUESTS
+#
+#   Ambas incluem: SAMPLE POSTS + BROADER THEME CONTEXT (Theme 01)
+#
+# CONTEXTO LIMITADO (context_quality: "limited"):
+#   Se a classificação NÃO foi executada, o agente responde com dados mínimos
+#   (só nome da categoria e comunidades) + sugestão para executar a classificação.
+#
+# CACHE:
+#   - Mesma pergunta na mesma categoria/janela retorna resposta cacheada (48h TTL)
+#   - Campo "cached" na resposta indica se veio do cache
+#
+# CATEGORIAS SUPORTADAS:
+#   - pain_and_anger
+#   - solution_request
+#   - Demais categorias retornam 400 com mensagem explicativa
+#
+# HISTÓRICO:
+#   - Todas as perguntas/respostas são persistidas na tabela intent_ask_logs
+###############################################################################
+
+@base_url = http://localhost:8000
+@token = REPLACE_WITH_JWT_TOKEN
+
+# IDs de exemplo — substitua pelos seus
+@audience_id = REPLACE_WITH_AUDIENCE_ID
+
+###############################################################################
+# 1. FAZER UMA PERGUNTA SOBRE PAIN & ANGER
+###############################################################################
+
+### Pergunta básica (janela semanal)
+# Envia uma pergunta e recebe resposta baseada nos dados de intent classification.
+#
+# Resposta esperada (context_quality: "rich"):
+# {
+#   "answer": "Com base nos dados analisados, as principais frustrações...",
+#   "context_quality": "rich",
+#   "sources_used": ["intent_classification", "theme_analysis"],
+#   "cached": false,
+#   "intent_category": "pain_and_anger",
+#   "suggestion": null,
+#   "analysis_id": "uuid-da-analise"
+# }
+#
+# Resposta esperada (context_quality: "limited"):
+# {
+#   "answer": "Com os dados disponíveis, posso informar que...",
+#   "context_quality": "limited",
+#   "sources_used": ["intent_metadata"],
+#   "cached": false,
+#   "intent_category": "pain_and_anger",
+#   "suggestion": "Execute a classificação de intenções para obter respostas mais detalhadas...",
+#   "analysis_id": null
+# }
+#
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais são as principais frustrações dessa audiência?"
+}
+
+###############################################################################
+# 2. PERGUNTAS DE EXEMPLO
+###############################################################################
+
+### Pergunta sobre emoções predominantes
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais emoções predominam nos posts de dor e raiva? Frustração, ansiedade ou raiva?"
+}
+
+###
+
+### Pergunta sobre padrões de dor
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais são os padrões de dor mais recorrentes e quantos posts cada um tem?"
+}
+
+###
+
+### Pergunta sobre oportunidades de conteúdo
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Com base nas dores identificadas, que tipo de conteúdo eu poderia criar para ajudar essa audiência?"
+}
+
+###
+
+### Pergunta sobre comunidades com mais dor
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais subreddits concentram mais posts de frustração e sobre quais temas?"
+}
+
+###
+
+### Pergunta sobre keywords de dor
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais são os assuntos que mais geram dor na audiência?"
+}
+
+###
+
+### Mesma pergunta (deve retornar cached: true)
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais são as principais frustrações dessa audiência?"
+}
+
+###############################################################################
+# 3. PERGUNTAS SOBRE SOLUTION REQUEST
+###############################################################################
+
+### Pergunta sobre tipos de solução buscados
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/solution_request/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais tipos de solução essa audiência mais procura?"
+}
+
+###
+
+### Pergunta sobre ferramentas buscadas
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/solution_request/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais ferramentas e plataformas a audiência mais busca?"
+}
+
+###
+
+### Pergunta sobre padrões de busca de solução
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/solution_request/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais são os padrões mais recorrentes nos pedidos de solução?"
+}
+
+###
+
+### Pergunta sobre oportunidades de produto
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/solution_request/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Com base nos pedidos de solução, que produto ou serviço eu poderia criar para essa audiência?"
+}
+
+###############################################################################
+# 4. JANELA MENSAL
+###############################################################################
+
+### Pergunta com janela mensal
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=month
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Como as dores da audiência mudaram ao longo do mês?"
+}
+
+###############################################################################
+# 5. CENÁRIOS DE ERRO
+###############################################################################
+
+### Categoria não suportada (→ 400)
+# Retorna: {"detail": "Q&A não disponível para a categoria 'advice_request'. Categorias suportadas: pain_and_anger, solution_request"}
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/advice_request/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais são os pedidos de conselho mais comuns?"
+}
+
+###
+
+### Janela inválida (→ 400)
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=year
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais são as dores?"
+}
+
+###
+
+### Pergunta muito curta — min_length=3 (→ 422)
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "oi"
+}
+
+###
+
+### Pergunta muito longa — max_length=500 (→ 422)
+# Envie uma string com mais de 500 caracteres
+
+###
+
+### Sem body (→ 422)
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Audiência inexistente (→ 404)
+POST {{base_url}}/audiences/00000000-0000-0000-0000-000000000000/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quais são as dores?"
+}
+
+###
+
+### Sem autenticação (→ 401)
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/ask?window=week
+content-type: application/json
+
+{
+  "question": "Quais são as dores?"
+}

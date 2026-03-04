@@ -1,0 +1,233 @@
+###############################################################################
+# Intent Classification — Classificação de Intenção de Posts (Theme 02)
+#
+# Classifica posts coletados pelo Theme 01 por intenção do autor.
+# Enquanto Theme 01 identifica "o que está sendo discutido",
+# Theme 02 responde "o que as pessoas querem quando postam?".
+#
+# PRÉ-REQUISITO: Theme Analysis (Theme 01) precisa ter sido executada
+#   com status "ready" para a janela desejada (week/month).
+#   Os posts são reutilizados da tabela theme_posts.
+#
+# FLUXO:
+#   1. GET  /themes/intents?window=week   → primeira vez retorna "no_analysis"
+#   2. POST /themes/intents/refresh?window=week → dispara classificação (202)
+#   3. GET  /themes/intents?window=week   → durante processamento: "processing"
+#   4. GET  /themes/intents?window=week   → após ~1-2min: "ready" com categorias
+#   5. GET  /themes/intents/{category}/posts → drill-down nos posts
+#
+# CATEGORIAS DE INTENÇÃO (6 fixas):
+#   - advice_request   → Pedidos de conselho, orientação, recomendação
+#   - pain_and_anger   → Expressões de dor, frustração, raiva, decepção
+#   - solution_request → Pedidos de ferramentas, produtos, serviços
+#   - self_promotion   → Promoção de produtos, serviços ou conteúdo próprio
+#   - ideas            → Sugestões, ideias, propostas, brainstorming
+#   - news             → Notícias, eventos, anúncios, atualizações
+###############################################################################
+
+@base_url = http://localhost:8000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNWYzOTZhOC1iYmU2LTRkOWItOGI5OS1jMGE1ZTc3ZjgwNzEiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcyMzA3MDAzfQ.cG2utLi4yAY2dsGDTLYXA3Mh1SuD1rDMK432aMqvCiM
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNWYzOTZhOC1iYmU2LTRkOWItOGI5OS1jMGE1ZTc3ZjgwNzEiLCJ0eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3Mjg5MTg4NX0.TvwIjkX3GOHGozqJHhLj1IobZLAdpQ7Fcemsl5ER2Po
+
+# IDs de exemplo — substitua pelos seus
+@audience_id = e9458348-6cad-4ba6-bf3e-87674d035613
+
+###############################################################################
+# 1. DISPARAR CLASSIFICAÇÃO DE INTENÇÕES (SEMANAL)
+###############################################################################
+
+### Iniciar classificação de intenções semanal (retorna 202 Accepted)
+# Dispara classificação em background thread.
+# Requer theme_analysis "ready" para a janela solicitada.
+# Se já existe classificação com mesmo fingerprint, retorna status atual.
+#
+# Respostas:
+#   - 202: Classificação iniciada
+#     {status: "processing", analysis_id: "uuid", message: "..."}
+#   - 200: Já existe (processing ou ready)
+#     {status: "processing|already_exists", analysis_id: "uuid"}
+#   - 400: Janela inválida ou sem theme_analysis ready
+#   - 404: Audiência não encontrada
+#   - 403: Acesso negado (não é dono da audiência)
+#
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/refresh?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 2. CONSULTAR CLASSIFICAÇÃO DE INTENÇÕES (SEMANAL)
+###############################################################################
+
+### Consultar resultado da classificação semanal
+# Retorna a classificação mais recente para a janela solicitada.
+#
+# Respostas possíveis por status:
+#   - "no_analysis": Nenhuma classificação existe. Use POST /refresh.
+#   - "processing":  Classificação em andamento. Aguarde ~1-2 minutos.
+#   - "ready":       Classificação pronta. Retorna categorias com contagens.
+#   - "failed":      Classificação falhou. Verifique error_message.
+#
+# Quando status = "ready", cada intent retorna:
+#   - category:       Nome interno da categoria (ex: advice_request)
+#   - label:          Label para UI (ex: "Advice Requests")
+#   - icon:           Ícone para UI (ex: "help-circle")
+#   - post_count:     Total de posts nesta categoria
+#   - percentage:     % do total de posts classificados
+#   - description:    Descrição gerada por IA
+#   - sample_posts:   [{title, subreddit, score}]
+#   - top_subreddits: [{name, count}] — de quais comunidades vêm (pain_and_anger, solution_request)
+#   - subcategories:  {key: count} — até 10 itens (pain_and_anger, solution_request)
+#   - topic_keywords: {keyword: count} — até 10 palavras-chave (pain_and_anger, solution_request)
+#   - pain_patterns:  [padrões agrupados] — pain_and_anger e solution_request (Issue #84, #100)
+#   - rank:           Posição ordenada por post_count desc
+#
+# Para pain_and_anger, subcategories traz sentimentos agregados via LLM
+# (ex: {frustration: 98, concern: 65, anger: 42}).
+# topic_keywords traz tópicos agregados (ex: {dog: 85, behavior: 42}).
+# pain_patterns agrupa posts em padrões comportamentais de dor via segunda chamada LLM.
+#
+# Para solution_request, subcategories traz tipos de solução buscados via LLM
+# (ex: {tools: 12, automation: 8, templates: 5}).
+# topic_keywords traz tópicos de solução (ex: {scheduling: 5, analytics: 4}).
+# pain_patterns (mesmo campo) agrupa posts em padrões de busca de solução.
+#
+# Cada padrão (pain_patterns) contém:
+#     - name:           Nome descritivo do padrão (5-10 palavras)
+#     - emoji:          Emoji representando o tom
+#     - post_count:     Quantidade de posts no padrão
+#     - total_upvotes:  Soma de upvotes dos posts
+#     - total_comments: Soma de comentários dos posts
+#     - submissions:    [{title, body, subreddit, score, num_comments, permalink}]
+#   Requer >= 3 posts na categoria. Se < 3, retorna [].
+# Para demais categorias, subcategories/topic_keywords retornam {} e pain_patterns retorna [].
+#
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 3. DISPARAR CLASSIFICAÇÃO DE INTENÇÕES (MENSAL)
+###############################################################################
+
+### Iniciar classificação de intenções mensal
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/refresh?window=month
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 4. CONSULTAR CLASSIFICAÇÃO DE INTENÇÕES (MENSAL)
+###############################################################################
+
+### Consultar resultado da classificação mensal
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents?window=month
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 5. DRILL-DOWN — POSTS POR CATEGORIA
+###############################################################################
+
+### Listar posts classificados como Advice Requests
+# Retorna posts paginados onde primary_intent OU secondary_intent
+# correspondem à categoria solicitada.
+#
+# Query params:
+#   - window: week | month (obrigatório)
+#   - limit:  20 (padrão)
+#   - offset: 0 (padrão)
+#
+# Respostas:
+#   - 200: Lista com posts, total, limit, offset
+#   - 400: Categoria inválida ou janela inválida
+#   - 404: Nenhuma classificação pronta encontrada
+#
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/advice_request/posts?window=week&limit=20&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Listar posts classificados como Pain & Anger
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/posts?window=week&limit=20&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Listar posts classificados como Solution Requests
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/solution_request/posts?window=week&limit=20&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Listar posts classificados como Self-Promotion
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/self_promotion/posts?window=week&limit=20&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Listar posts classificados como Ideas
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/ideas/posts?window=week&limit=20&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Listar posts classificados como News
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/news/posts?window=week&limit=20&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 6. PAGINAÇÃO
+###############################################################################
+
+### Drill-down com paginação (página 2)
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/advice_request/posts?window=week&limit=20&offset=20
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Drill-down com limite reduzido
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/pain_and_anger/posts?window=week&limit=5&offset=0
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 7. CENÁRIOS DE ERRO
+###############################################################################
+
+### Categoria inválida (retorna 400)
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents/invalid_category/posts?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Janela inválida no refresh (retorna 400)
+POST {{base_url}}/audiences/{{audience_id}}/themes/intents/refresh?window=invalid
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Janela inválida na consulta (retorna 400)
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents?window=year
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Audiência inexistente (retorna 404)
+GET {{base_url}}/audiences/00000000-0000-0000-0000-000000000000/themes/intents?window=week
+content-type: application/json
+Authorization: Bearer {{token}}
+
+###
+
+### Sem autenticação (retorna 401)
+GET {{base_url}}/audiences/{{audience_id}}/themes/intents?window=week
+content-type: application/json
