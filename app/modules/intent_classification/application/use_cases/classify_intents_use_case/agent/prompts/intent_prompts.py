@@ -413,3 +413,113 @@ RULES:
 - post_ids must match exactly the POST_ID values from the input
 - Return ONLY the JSON array, no additional text
 {language_directive}"""
+
+
+def get_analyze_ideas_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+) -> str:
+    """Prompt para análise holística de tipos de ideias e tópicos em posts ideas."""
+    return f"""You are an expert community analyst specializing in understanding innovation signals, feature requests, product ideas, and creative suggestions shared in online communities.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total ideas posts: {total_posts}
+
+Below are ALL posts classified as "ideas" from this audience's communities.
+Your task is to analyze them holistically and identify:
+
+1. **Idea type subcategories**: What kinds of ideas are people proposing? (e.g., feature_request, product_idea, improvement, workflow_optimization, integration, new_concept, business_model, ux_redesign, automation, open_source, pricing_model, community_feature, etc.)
+2. **Topic keywords**: What specific subjects are the ideas about? Use single words. (e.g., automation, dashboard, analytics, pricing, onboarding, mobile, api, collaboration, templates, scheduling, etc.)
+
+POSTS:
+{posts_text}
+
+---
+
+Respond in JSON format:
+{{
+  "subcategories": {{
+    "idea_type": count,
+    "idea_type": count
+  }},
+  "topic_keywords": {{
+    "keyword": count,
+    "keyword": count
+  }}
+}}
+
+RULES:
+- subcategories: Return up to 10 idea types, sorted by count descending
+- topic_keywords: Return up to 10 single-word topics, sorted by count descending
+- Each count represents how many posts propose that type of idea or relate to that topic
+- A single post can contribute to multiple idea types or topics
+- Use lowercase for all keys
+- Idea types should be specific (use "feature_request" not "suggestion", use "ux_redesign" not "design")
+- Topics should be single words that capture the core subject (use "automation" not "automation tools")
+- The sum of subcategory counts may exceed total_posts (one post can propose multiple idea types)
+- Return ONLY the JSON object, no additional text
+{language_directive}"""
+
+
+def get_ideas_patterns_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+    has_comments: bool = False,
+) -> str:
+    """Prompt para agrupar posts ideas em padrões de inovação/sugestão."""
+    comments_instruction = ""
+    if has_comments:
+        comments_instruction = """
+
+IMPORTANT — THREAD COMMENTS ANALYSIS:
+Some posts include top community comments (marked with 💬 COMMENTS). Use them to:
+1. Assess **community_reception**: How the community reacted to the idea — "enthusiastic" (strong support, many want it), "positive" (general agreement), "mixed" (divided opinions), "skeptical" (doubts about feasibility/value)
+2. Extract **refinements**: Concrete improvements or variations suggested by commenters that make the idea better
+3. Extract **feasibility_notes**: Any technical or practical considerations mentioned by the community about implementing the idea
+- If comments are present, include "community_reception", "refinements", and "feasibility_notes" fields in each pattern"""
+
+    return f"""You are an expert community analyst. Your task is to group idea posts into innovation patterns — recurring themes that reveal what improvements, features, and creative concepts the audience is actively proposing and discussing.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total ideas posts: {total_posts}
+
+Below are posts classified as "ideas" from this audience's communities, including their body text for richer context.
+{comments_instruction}
+
+POSTS:
+{posts_text}
+
+---
+
+Group these posts into 3 to 8 innovation/idea patterns. Each pattern should represent a distinct, recurring type of idea or suggestion being proposed.
+
+Respond in JSON format:
+[
+  {{
+    "name": "Short descriptive name of the idea pattern (5-10 words)",
+    "emoji": "single emoji representing the type of idea",
+    "post_ids": ["id1", "id2", "id3"]{', "community_reception": "enthusiastic|positive|mixed|skeptical", "refinements": ["suggestion1", "suggestion2"], "feasibility_notes": ["note1", "note2"]' if has_comments else ''}
+  }}
+]
+
+RULES:
+- Create 3 to 8 patterns maximum
+- Each pattern must have at least 2 posts (if total posts < 6, patterns with 1 post are acceptable)
+- Each post_id must appear in EXACTLY ONE pattern — no duplicates across patterns
+- Every post_id from the input should be assigned to a pattern
+- Pattern names should be descriptive innovation phrases (5-10 words)
+- Use a single emoji that best represents the idea type (e.g., 💡 new concept, 🚀 feature request, 🔧 improvement, 🔄 workflow, 🤖 automation, 📊 analytics, 🎨 design, 🔌 integration)
+- Order patterns by number of posts (most posts first)
+- post_ids must match exactly the POST_ID values from the input
+- Return ONLY the JSON array, no additional text
+{language_directive}"""

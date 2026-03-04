@@ -15,9 +15,11 @@ from app.modules.intent_classification.application.use_cases.classify_intents_us
     get_advice_patterns_prompt,
     get_aggregate_intents_prompt,
     get_analyze_advice_requests_prompt,
+    get_analyze_ideas_prompt,
     get_analyze_pain_anger_prompt,
     get_analyze_solution_requests_prompt,
     get_classify_intents_prompt,
+    get_ideas_patterns_prompt,
     get_pain_patterns_prompt,
     get_solution_patterns_prompt,
 )
@@ -938,6 +940,203 @@ def analyze_advice_requests(state: IntentClassificationState) -> dict:
     return {"intent_aggregations": updated}
 
 
+def analyze_ideas(state: IntentClassificationState) -> dict:
+    """
+    Nó 6: Analisa posts ideas para extrair tipos de ideia e tópicos.
+
+    Envia TODOS os posts classificados como ideas ao LLM em uma única chamada
+    para obter distribuições agregadas de tipos de ideia e topic keywords.
+    Também computa top_subreddits (de quais comunidades vêm os posts ideas).
+    Opcionalmente, agrupa posts em padrões de inovação (segunda chamada LLM).
+    Enriquece com comentários dos top posts quando reddit_provider disponível.
+    """
+    aggregations = state.get("intent_aggregations", [])
+    classified = state.get("classified_posts", [])
+
+    # Filtrar posts ideas
+    ideas_posts = [p for p in classified if p["primary_intent"] == "ideas"]
+    if not ideas_posts:
+        return {"intent_aggregations": aggregations}
+
+    # Computar top_subreddits a partir dos posts ideas
+    subreddit_counter = Counter(p["post_subreddit"] for p in ideas_posts)
+    top_subreddits = [
+        {"name": name, "count": count}
+        for name, count in subreddit_counter.most_common(10)
+    ]
+
+    # Construir texto de posts para o prompt
+    posts_text = _build_posts_batch_text(
+        [
+            {
+                "id": p["post_id"],
+                "subreddit": p["post_subreddit"],
+                "title": p["post_title"],
+                "score": 0,
+                "num_comments": 0,
+            }
+            for p in ideas_posts
+        ]
+    )
+
+    llm = _get_llm()
+    language_directive = get_language_directive(state.get("language", "en"))
+
+    prompt = get_analyze_ideas_prompt(
+        audience_name=state["audience_name"],
+        period_start=state["period_start"],
+        period_end=state["period_end"],
+        posts_text=posts_text,
+        total_posts=len(ideas_posts),
+        language_directive=language_directive,
+    )
+
+    response = llm.invoke(prompt)
+    result = _parse_json_object_response(extract_response_text(response))
+
+    subcategories = result.get("subcategories")
+    topic_keywords = result.get("topic_keywords")
+
+    # Validar e limitar a 10 itens
+    if isinstance(subcategories, dict):
+        subcategories = dict(
+            sorted(subcategories.items(), key=lambda x: x[1], reverse=True)[:10]
+        )
+    else:
+        subcategories = None
+
+    if isinstance(topic_keywords, dict):
+        topic_keywords = dict(
+            sorted(topic_keywords.items(), key=lambda x: x[1], reverse=True)[:10]
+        )
+    else:
+        topic_keywords = None
+
+    # --- Ideas Patterns (segunda chamada LLM) ---
+    ideas_patterns = []
+    if len(ideas_posts) >= 3:
+        # Lookup de posts completos (com selftext, score, num_comments, permalink)
+        full_posts_map = {p["id"]: p for p in state.get("posts", [])}
+
+        # Montar texto rico para o prompt (inclui selftext)
+        rich_posts = [
+            full_posts_map[p["post_id"]]
+            for p in ideas_posts
+            if p["post_id"] in full_posts_map
+        ]
+
+        # Buscar comentários se reddit_provider disponível
+        reddit_provider = state.get("reddit_provider")
+        comments_map: dict[str, list[dict]] = {}
+        has_comments = False
+        if reddit_provider and THREAD_ANALYSIS_ENABLED:
+            logger.info(
+                "Fetching comments for top %d ideas posts",
+                TOP_POSTS_FOR_COMMENTS,
+            )
+            comments_map = _fetch_comments_for_posts(rich_posts, reddit_provider)
+            has_comments = bool(comments_map)
+            logger.info("Fetched comments for %d ideas posts", len(comments_map))
+
+        # Usar texto com ou sem comentários
+        if has_comments:
+            patterns_text = _build_posts_with_comments_text(rich_posts, comments_map)
+        else:
+            patterns_text = _build_posts_batch_text(rich_posts)
+
+        patterns_prompt = get_ideas_patterns_prompt(
+            audience_name=state["audience_name"],
+            period_start=state["period_start"],
+            period_end=state["period_end"],
+            posts_text=patterns_text,
+            total_posts=len(ideas_posts),
+            language_directive=language_directive,
+            has_comments=has_comments,
+        )
+
+        try:
+            patterns_response = llm.invoke(patterns_prompt)
+            raw_patterns = _parse_json_response(
+                extract_response_text(patterns_response)
+            )
+
+            # Enriquecer cada padrão com métricas e submissions
+            for pattern in raw_patterns:
+                submissions = []
+                total_upvotes = 0
+                total_comments = 0
+                for pid in pattern.get("post_ids", []):
+                    fp = full_posts_map.get(pid)
+                    if not fp:
+                        continue
+                    submission = {
+                        "title": fp["title"],
+                        "body": (fp.get("selftext") or "")[:500],
+                        "subreddit": f"r/{fp['subreddit']}",
+                        "score": fp.get("score", 0),
+                        "num_comments": fp.get("num_comments", 0),
+                        "permalink": fp.get("permalink", ""),
+                    }
+                    if has_comments and pid in comments_map:
+                        submission["top_comments"] = comments_map[pid]
+                    submissions.append(submission)
+                    total_upvotes += fp.get("score", 0)
+                    total_comments += fp.get("num_comments", 0)
+
+                if submissions:
+                    pattern_entry = {
+                        "name": pattern.get("name", ""),
+                        "emoji": pattern.get("emoji", ""),
+                        "post_count": len(submissions),
+                        "total_upvotes": total_upvotes,
+                        "total_comments": total_comments,
+                        "submissions": submissions,
+                    }
+                    if has_comments:
+                        pattern_entry["community_reception"] = pattern.get(
+                            "community_reception", "mixed"
+                        )
+                        pattern_entry["refinements"] = pattern.get(
+                            "refinements", []
+                        )
+                        pattern_entry["feasibility_notes"] = pattern.get(
+                            "feasibility_notes", []
+                        )
+                    ideas_patterns.append(pattern_entry)
+
+            ideas_patterns.sort(key=lambda x: x["post_count"], reverse=True)
+            logger.info(
+                "Ideas patterns: %d patterns identified from %d posts (comments: %s)",
+                len(ideas_patterns),
+                len(ideas_posts),
+                "yes" if has_comments else "no",
+            )
+        except Exception:
+            logger.exception("Failed to extract ideas patterns, continuing without them")
+            ideas_patterns = []
+
+    # Atualizar a agregação de ideas
+    updated = []
+    for agg in aggregations:
+        if agg["category"] == "ideas":
+            agg = {
+                **agg,
+                "subcategories": subcategories,
+                "topic_keywords": topic_keywords,
+                "top_subreddits": top_subreddits,
+                "pain_patterns": ideas_patterns,
+            }
+        updated.append(agg)
+
+    logger.info(
+        "Ideas analysis: %d subcategories, %d topic keywords, %d subreddits",
+        len(subcategories) if subcategories else 0,
+        len(topic_keywords) if topic_keywords else 0,
+        len(top_subreddits),
+    )
+    return {"intent_aggregations": updated}
+
+
 def create_intent_classification_agent():
     """Cria e compila o grafo LangGraph de classificação de intenção."""
     workflow = StateGraph(IntentClassificationState)
@@ -946,10 +1145,12 @@ def create_intent_classification_agent():
     workflow.add_node("analyze_pain_anger", analyze_pain_anger)
     workflow.add_node("analyze_solution_requests", analyze_solution_requests)
     workflow.add_node("analyze_advice_requests", analyze_advice_requests)
+    workflow.add_node("analyze_ideas", analyze_ideas)
     workflow.add_edge(START, "classify_intents")
     workflow.add_edge("classify_intents", "aggregate_intents")
     workflow.add_edge("aggregate_intents", "analyze_pain_anger")
     workflow.add_edge("analyze_pain_anger", "analyze_solution_requests")
     workflow.add_edge("analyze_solution_requests", "analyze_advice_requests")
-    workflow.add_edge("analyze_advice_requests", END)
+    workflow.add_edge("analyze_advice_requests", "analyze_ideas")
+    workflow.add_edge("analyze_ideas", END)
     return workflow.compile()
