@@ -32,6 +32,13 @@ logger = logging.getLogger(__name__)
 MAX_POSTS_CHARS = 80_000
 BATCH_SIZE = 50
 
+# Thread analysis configuration
+TOP_POSTS_FOR_COMMENTS = 15
+COMMENTS_PER_POST = 30
+TOP_COMMENTS_IN_PROMPT = 5
+MAX_COMMENT_LENGTH = 500
+THREAD_ANALYSIS_ENABLED = True
+
 VALID_INTENTS = {
     "advice_request",
     "pain_and_anger",
@@ -72,6 +79,95 @@ def _build_posts_batch_text(posts: list[dict], max_chars: int = MAX_POSTS_CHARS)
         )
         if selftext.strip():
             entry += f"Body: {selftext}\n"
+        entry += "---\n"
+
+        if total_chars + len(entry) > max_chars:
+            break
+        lines.append(entry)
+        total_chars += len(entry)
+
+    return "".join(lines)
+
+
+def _fetch_comments_for_posts(
+    posts: list[dict],
+    reddit_provider,
+    top_n: int = TOP_POSTS_FOR_COMMENTS,
+    comments_per_post: int = COMMENTS_PER_POST,
+    top_comments_in_prompt: int = TOP_COMMENTS_IN_PROMPT,
+) -> dict[str, list[dict]]:
+    """
+    Busca comentários dos top N posts por num_comments.
+
+    Returns:
+        Dict mapping post_id -> list of top comments sorted by score.
+    """
+    sorted_posts = sorted(
+        posts,
+        key=lambda p: p.get("num_comments", 0),
+        reverse=True,
+    )[:top_n]
+
+    comments_map: dict[str, list[dict]] = {}
+    for post in sorted_posts:
+        subreddit = post.get("subreddit", "")
+        post_id = post.get("id", "")
+        if not subreddit or not post_id:
+            continue
+
+        try:
+            raw_comments = reddit_provider.get_post_comments(
+                subreddit, post_id, limit=comments_per_post
+            )
+            sorted_comments = sorted(
+                raw_comments, key=lambda c: c.score, reverse=True
+            )[:top_comments_in_prompt]
+            comments_map[post_id] = [
+                {
+                    "body": c.body,
+                    "score": c.score,
+                    "author": c.author or "anonymous",
+                }
+                for c in sorted_comments
+            ]
+        except Exception:
+            logger.warning("Failed to fetch comments for post %s", post_id)
+            comments_map[post_id] = []
+
+    return comments_map
+
+
+def _build_posts_with_comments_text(
+    posts: list[dict],
+    comments_map: dict[str, list[dict]],
+    max_chars: int = MAX_POSTS_CHARS,
+) -> str:
+    """Formata batch de posts COM comentários para o prompt de patterns."""
+    lines: list[str] = []
+    total_chars = 0
+
+    for post in posts:
+        selftext = (post.get("selftext") or "")[:500]
+        entry = (
+            f"[POST_ID: {post['id']}] "
+            f"r/{post['subreddit']} | score: {post.get('score', 0)} | "
+            f"comments: {post.get('num_comments', 0)}\n"
+            f"Title: {post['title']}\n"
+        )
+        if selftext.strip():
+            entry += f"Body: {selftext}\n"
+
+        post_comments = comments_map.get(post["id"], [])
+        if post_comments:
+            entry += "--- Top Comments ---\n"
+            for comment in post_comments:
+                body = comment["body"].strip()
+                if len(body) > MAX_COMMENT_LENGTH:
+                    body = body[:MAX_COMMENT_LENGTH] + "..."
+                entry += (
+                    f"  [{comment['author']}, score:{comment['score']}] {body}\n"
+                )
+
         entry += "---\n"
 
         if total_chars + len(entry) > max_chars:
@@ -294,6 +390,7 @@ def analyze_pain_anger(state: IntentClassificationState) -> dict:
     para obter distribuições agregadas de sentimentos e topic keywords.
     Também computa top_subreddits (de quais comunidades vêm os posts pain_and_anger).
     Opcionalmente, agrupa posts em padrões de dor comportamentais (segunda chamada LLM).
+    Enriquece com comentários dos top posts quando reddit_provider disponível.
     """
     aggregations = state.get("intent_aggregations", [])
     classified = state.get("classified_posts", [])
@@ -369,7 +466,25 @@ def analyze_pain_anger(state: IntentClassificationState) -> dict:
             for p in pain_posts
             if p["post_id"] in full_posts_map
         ]
-        patterns_text = _build_posts_batch_text(rich_posts)
+
+        # Buscar comentários se reddit_provider disponível
+        reddit_provider = state.get("reddit_provider")
+        comments_map: dict[str, list[dict]] = {}
+        has_comments = False
+        if reddit_provider and THREAD_ANALYSIS_ENABLED:
+            logger.info(
+                "Fetching comments for top %d pain_and_anger posts",
+                TOP_POSTS_FOR_COMMENTS,
+            )
+            comments_map = _fetch_comments_for_posts(rich_posts, reddit_provider)
+            has_comments = bool(comments_map)
+            logger.info("Fetched comments for %d pain_and_anger posts", len(comments_map))
+
+        # Usar texto com ou sem comentários
+        if has_comments:
+            patterns_text = _build_posts_with_comments_text(rich_posts, comments_map)
+        else:
+            patterns_text = _build_posts_batch_text(rich_posts)
 
         patterns_prompt = get_pain_patterns_prompt(
             audience_name=state["audience_name"],
@@ -378,6 +493,7 @@ def analyze_pain_anger(state: IntentClassificationState) -> dict:
             posts_text=patterns_text,
             total_posts=len(pain_posts),
             language_directive=language_directive,
+            has_comments=has_comments,
         )
 
         try:
@@ -395,36 +511,44 @@ def analyze_pain_anger(state: IntentClassificationState) -> dict:
                     fp = full_posts_map.get(pid)
                     if not fp:
                         continue
-                    submissions.append(
-                        {
-                            "title": fp["title"],
-                            "body": (fp.get("selftext") or "")[:500],
-                            "subreddit": f"r/{fp['subreddit']}",
-                            "score": fp.get("score", 0),
-                            "num_comments": fp.get("num_comments", 0),
-                            "permalink": fp.get("permalink", ""),
-                        }
-                    )
+                    submission = {
+                        "title": fp["title"],
+                        "body": (fp.get("selftext") or "")[:500],
+                        "subreddit": f"r/{fp['subreddit']}",
+                        "score": fp.get("score", 0),
+                        "num_comments": fp.get("num_comments", 0),
+                        "permalink": fp.get("permalink", ""),
+                    }
+                    if has_comments and pid in comments_map:
+                        submission["top_comments"] = comments_map[pid]
+                    submissions.append(submission)
                     total_upvotes += fp.get("score", 0)
                     total_comments += fp.get("num_comments", 0)
 
                 if submissions:
-                    pain_patterns.append(
-                        {
-                            "name": pattern.get("name", ""),
-                            "emoji": pattern.get("emoji", ""),
-                            "post_count": len(submissions),
-                            "total_upvotes": total_upvotes,
-                            "total_comments": total_comments,
-                            "submissions": submissions,
-                        }
-                    )
+                    pattern_entry = {
+                        "name": pattern.get("name", ""),
+                        "emoji": pattern.get("emoji", ""),
+                        "post_count": len(submissions),
+                        "total_upvotes": total_upvotes,
+                        "total_comments": total_comments,
+                        "submissions": submissions,
+                    }
+                    if has_comments:
+                        pattern_entry["validation_score"] = pattern.get(
+                            "validation_score", "low"
+                        )
+                        pattern_entry["suggested_coping"] = pattern.get(
+                            "suggested_coping", []
+                        )
+                    pain_patterns.append(pattern_entry)
 
             pain_patterns.sort(key=lambda x: x["post_count"], reverse=True)
             logger.info(
-                "Pain patterns: %d patterns identified from %d posts",
+                "Pain patterns: %d patterns identified from %d posts (comments: %s)",
                 len(pain_patterns),
                 len(pain_posts),
+                "yes" if has_comments else "no",
             )
         except Exception:
             logger.exception("Failed to extract pain patterns, continuing without them")
@@ -460,6 +584,7 @@ def analyze_solution_requests(state: IntentClassificationState) -> dict:
     para obter distribuições agregadas de tipos de solução e topic keywords.
     Também computa top_subreddits (de quais comunidades vêm os posts solution_request).
     Opcionalmente, agrupa posts em padrões de busca de solução (segunda chamada LLM).
+    Enriquece com comentários dos top posts quando reddit_provider disponível.
     """
     aggregations = state.get("intent_aggregations", [])
     classified = state.get("classified_posts", [])
@@ -535,7 +660,25 @@ def analyze_solution_requests(state: IntentClassificationState) -> dict:
             for p in solution_posts
             if p["post_id"] in full_posts_map
         ]
-        patterns_text = _build_posts_batch_text(rich_posts)
+
+        # Buscar comentários se reddit_provider disponível
+        reddit_provider = state.get("reddit_provider")
+        comments_map: dict[str, list[dict]] = {}
+        has_comments = False
+        if reddit_provider and THREAD_ANALYSIS_ENABLED:
+            logger.info(
+                "Fetching comments for top %d solution_request posts",
+                TOP_POSTS_FOR_COMMENTS,
+            )
+            comments_map = _fetch_comments_for_posts(rich_posts, reddit_provider)
+            has_comments = bool(comments_map)
+            logger.info("Fetched comments for %d solution_request posts", len(comments_map))
+
+        # Usar texto com ou sem comentários
+        if has_comments:
+            patterns_text = _build_posts_with_comments_text(rich_posts, comments_map)
+        else:
+            patterns_text = _build_posts_batch_text(rich_posts)
 
         patterns_prompt = get_solution_patterns_prompt(
             audience_name=state["audience_name"],
@@ -544,6 +687,7 @@ def analyze_solution_requests(state: IntentClassificationState) -> dict:
             posts_text=patterns_text,
             total_posts=len(solution_posts),
             language_directive=language_directive,
+            has_comments=has_comments,
         )
 
         try:
@@ -561,36 +705,44 @@ def analyze_solution_requests(state: IntentClassificationState) -> dict:
                     fp = full_posts_map.get(pid)
                     if not fp:
                         continue
-                    submissions.append(
-                        {
-                            "title": fp["title"],
-                            "body": (fp.get("selftext") or "")[:500],
-                            "subreddit": f"r/{fp['subreddit']}",
-                            "score": fp.get("score", 0),
-                            "num_comments": fp.get("num_comments", 0),
-                            "permalink": fp.get("permalink", ""),
-                        }
-                    )
+                    submission = {
+                        "title": fp["title"],
+                        "body": (fp.get("selftext") or "")[:500],
+                        "subreddit": f"r/{fp['subreddit']}",
+                        "score": fp.get("score", 0),
+                        "num_comments": fp.get("num_comments", 0),
+                        "permalink": fp.get("permalink", ""),
+                    }
+                    if has_comments and pid in comments_map:
+                        submission["top_comments"] = comments_map[pid]
+                    submissions.append(submission)
                     total_upvotes += fp.get("score", 0)
                     total_comments += fp.get("num_comments", 0)
 
                 if submissions:
-                    solution_patterns.append(
-                        {
-                            "name": pattern.get("name", ""),
-                            "emoji": pattern.get("emoji", ""),
-                            "post_count": len(submissions),
-                            "total_upvotes": total_upvotes,
-                            "total_comments": total_comments,
-                            "submissions": submissions,
-                        }
-                    )
+                    pattern_entry = {
+                        "name": pattern.get("name", ""),
+                        "emoji": pattern.get("emoji", ""),
+                        "post_count": len(submissions),
+                        "total_upvotes": total_upvotes,
+                        "total_comments": total_comments,
+                        "submissions": submissions,
+                    }
+                    if has_comments:
+                        pattern_entry["recommended_solutions"] = pattern.get(
+                            "recommended_solutions", []
+                        )
+                        pattern_entry["community_consensus"] = pattern.get(
+                            "community_consensus", "weak"
+                        )
+                    solution_patterns.append(pattern_entry)
 
             solution_patterns.sort(key=lambda x: x["post_count"], reverse=True)
             logger.info(
-                "Solution patterns: %d patterns identified from %d posts",
+                "Solution patterns: %d patterns identified from %d posts (comments: %s)",
                 len(solution_patterns),
                 len(solution_posts),
+                "yes" if has_comments else "no",
             )
         except Exception:
             logger.exception("Failed to extract solution patterns, continuing without them")

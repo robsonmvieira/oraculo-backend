@@ -17,6 +17,9 @@ from app.modules.intent_classification.infra.repositories.intent_classification_
 from app.modules.theme_analysis.infra.repositories.theme_analysis_repository import (
     ThemeAnalysisRepository,
 )
+from app.modules.topics.infra.providers.reddit_provider.generic_reddit_provider import (
+    GenericRedditProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,7 @@ class ClassifyIntentsUseCase:
         self.audience_repo = AudienceRepository(db)
         self.theme_repo = ThemeAnalysisRepository(db)
         self.intent_repo = IntentClassificationRepository(db)
+        self.reddit_provider = GenericRedditProvider()
 
     def execute(
         self,
@@ -121,6 +125,7 @@ class ClassifyIntentsUseCase:
                     "period_start": period_start,
                     "period_end": period_end,
                     "language": language,
+                    "reddit_provider": self.reddit_provider,
                     "classified_posts": [],
                     "intent_aggregations": [],
                 }
