@@ -46,6 +46,7 @@ from app.modules.topic_chat.domain.entities import topic_conversation_message  #
 from app.modules.intent_ask.domain.entities import intent_ask_log  # noqa: E402, F401
 from app.modules.content_suggestions.domain.entities import content_draft  # noqa: E402, F401
 from app.modules.youtube_validation.domain.entities import youtube_validation  # noqa: E402, F401
+from app.modules.product_intelligence.domain.entities import product_intelligence  # noqa: E402, F401
 
 target_metadata = [Base.metadata]
 
