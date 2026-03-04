@@ -24,6 +24,7 @@ from app.routes.topic_alerts import router as topic_alerts_router
 from app.routes.content_suggestions import router as content_suggestions_router
 from app.routes.intent_ask import router as intent_ask_router
 from app.routes.intent_chat import router as intent_chat_router
+from app.routes.semantic_search import router as semantic_search_router
 
 __all__ = [
     "auth_router",
@@ -48,4 +49,5 @@ __all__ = [
     "content_suggestions_router",
     "intent_ask_router",
     "intent_chat_router",
+    "semantic_search_router",
 ]

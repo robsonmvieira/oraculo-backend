@@ -29,6 +29,7 @@ from app.routes import (
     content_suggestions_router,
     intent_ask_router,
     intent_chat_router,
+    semantic_search_router,
 )
 
 logging.basicConfig(
@@ -99,6 +100,7 @@ app.include_router(topic_alerts_router)
 app.include_router(content_suggestions_router)
 app.include_router(intent_ask_router)
 app.include_router(intent_chat_router)
+app.include_router(semantic_search_router)
 
 
 @app.get("/")
