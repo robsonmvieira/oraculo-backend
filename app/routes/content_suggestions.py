@@ -23,6 +23,7 @@ from app.modules.content_suggestions.infra.repositories.content_suggestion_repos
 )
 from app.modules.identity.dependencies import get_current_user
 from app.modules.identity.domain.entities.user import User
+from app.modules.shared.application.services.storage_service import StorageService
 from app.modules.shared.infra.database.database import get_db
 
 router = APIRouter(
@@ -303,6 +304,25 @@ def get_draft(
     return _serialize_draft(draft)
 
 
+def _resolve_image_url(image_value: str | None) -> str | None:
+    """Gera presigned URL a partir da key do S3.
+
+    Compativel com registros antigos que armazenam a URL publica completa:
+    detecta pelo prefixo ``https://`` e extrai a key automaticamente.
+    """
+    if not image_value:
+        return None
+    try:
+        key = image_value
+        if image_value.startswith("https://"):
+            # URL antiga: https://<bucket>.s3.<region>.amazonaws.com/<key>
+            key = image_value.split(".amazonaws.com/", 1)[-1]
+        storage = StorageService()
+        return storage.get_presigned_url(key)
+    except Exception:
+        return None
+
+
 def _serialize_suggestion(s) -> dict:
     """Serializa uma sugestao para resposta JSON."""
     return {
@@ -321,7 +341,7 @@ def _serialize_suggestion(s) -> dict:
         "keywords": s.keywords,
         "research_notes": s.research_notes,
         "image_prompt": s.image_prompt,
-        "image_url": s.image_url,
+        "image_url": _resolve_image_url(s.image_url),
         "differentiation_notes": s.differentiation_notes,
         "accuracy_notes": s.accuracy_notes,
         "source_topics": s.source_topics,
@@ -345,7 +365,7 @@ def _serialize_draft(d) -> dict:
         "cta": d.cta,
         "platform_notes": d.platform_notes,
         "hashtags": d.hashtags or [],
-        "image_url": d.image_url,
+        "image_url": _resolve_image_url(d.image_url),
         "image_aspect_ratio": d.image_aspect_ratio,
         "model_used": d.model_used,
         "created_at": d.created_at.isoformat() if d.created_at else None,

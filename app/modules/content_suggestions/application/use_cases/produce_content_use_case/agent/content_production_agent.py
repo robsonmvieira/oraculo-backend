@@ -4,13 +4,12 @@ import json
 import logging
 import os
 
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.shared.application.helpers.language_directive import (
     get_language_directive,
 )
-from app.modules.shared.application.services.llm_factory import extract_response_text
+from app.modules.shared.application.services.llm_factory import create_llm, extract_response_text
 
 from .prompts.draft_prompts import get_draft_content_prompt
 from .prompts.hooks_prompts import get_refine_hooks_prompt
@@ -19,13 +18,13 @@ from .state import ContentProductionState
 logger = logging.getLogger(__name__)
 
 
-def _get_llm() -> ChatOpenAI:
+def _get_llm():
     """Retorna instancia do LLM para producao de conteudo."""
-    model_name = os.getenv(
-        "CONTENT_PRODUCTION_MODEL",
-        os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
+    return create_llm(
+        model_env_var="CONTENT_PRODUCTION_MODEL",
+        default_model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
+        temperature=0.5,
     )
-    return ChatOpenAI(model=model_name, temperature=0.5)
 
 
 def _parse_json_response(text: str) -> list[dict]:

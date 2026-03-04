@@ -210,7 +210,12 @@ class ProduceContentUseCase:
         platforms: list[str],
         user_id: UUID | None = None,
     ) -> str | None:
-        """Gera imagem via Imagen e faz upload para S3."""
+        """Gera imagem via Imagen e faz upload para S3.
+
+        Returns:
+            A S3 key do arquivo enviado (usada para gerar presigned URLs)
+            ou None se a geracao falhar.
+        """
         if not image_prompt:
             logger.info("No image_prompt, skipping image generation")
             return None
@@ -241,13 +246,13 @@ class ProduceContentUseCase:
             key = storage.generate_key(
                 prefix=f"content-images/{suggestion_id}"
             )
-            url = storage.upload(data=image_bytes, key=key)
+            storage.upload(data=image_bytes, key=key)
 
             # Registrar arquivo na tabela uploaded_files
             try:
                 file_record = UploadedFile(
                     key=key,
-                    url=url,
+                    url=key,
                     content_type="image/png",
                     size_bytes=len(image_bytes),
                     uploaded_by=user_id,
@@ -255,10 +260,10 @@ class ProduceContentUseCase:
                 UploadedFileRepository(self.db).save(file_record)
                 logger.info("Image registered in uploaded_files: %s", key)
             except Exception:
-                logger.exception("Failed to register image in uploaded_files, URL still valid")
+                logger.exception("Failed to register image in uploaded_files")
 
-            logger.info("Image uploaded: %s", url)
-            return url
+            logger.info("Image uploaded with key: %s", key)
+            return key
 
         except Exception:
             logger.exception("Image generation/upload failed, continuing without image")
