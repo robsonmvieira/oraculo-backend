@@ -8,7 +8,7 @@ from app.modules.audiences.infra.repositories.audience_repository import (
     AudienceRepository,
 )
 from app.modules.identity.domain.entities.user import User
-from app.modules.identity.infra.security import get_current_user
+from app.modules.identity.dependencies import get_current_user
 from app.modules.semantic_search.application.use_cases.semantic_search_use_case.semantic_search_use_case import (
     SemanticSearchUseCase,
 )
