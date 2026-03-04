@@ -37,16 +37,14 @@ from app.modules.similar_communities.domain.entities import community_embedding 
 from app.modules.similar_communities.domain.entities import user_feedback  # noqa: E402, F401
 from app.modules.audience_templates.domain.entities import audience_template  # noqa: E402, F401
 from app.modules.audience_topics.domain.entities import audience_topic  # noqa: E402, F401
-from app.modules.audience_topics.domain.entities import audience_topic_analysis  # noqa: E402, F401
 from app.modules.topic_deep_dive.domain.entities import topic_deep_dive  # noqa: E402, F401
-from app.modules.notifications.domain.entities import analysis_notification  # noqa: E402, F401
-from app.modules.topic_sentiment.domain.entities import topic_sentiment_analysis  # noqa: E402, F401
-from app.modules.topic_patterns.domain.entities import topic_pattern_analysis  # noqa: E402, F401
+from app.modules.notifications.domain.entities import notification  # noqa: E402, F401
+from app.modules.topic_sentiment.domain.entities import topic_sentiment  # noqa: E402, F401
+from app.modules.topic_patterns.domain.entities import topic_pattern  # noqa: E402, F401
 from app.modules.topic_chat.domain.entities import topic_conversation  # noqa: E402, F401
 from app.modules.topic_chat.domain.entities import topic_conversation_message  # noqa: E402, F401
 from app.modules.intent_ask.domain.entities import intent_ask_log  # noqa: E402, F401
 from app.modules.content_suggestions.domain.entities import content_draft  # noqa: E402, F401
-from app.modules.weekly_theme.domain.entities import weekly_theme_analysis  # noqa: E402, F401
 
 target_metadata = [Base.metadata]
 
