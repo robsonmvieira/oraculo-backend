@@ -523,3 +523,113 @@ RULES:
 - post_ids must match exactly the POST_ID values from the input
 - Return ONLY the JSON array, no additional text
 {language_directive}"""
+
+
+def get_analyze_self_promotion_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+) -> str:
+    """Prompt para análise holística de tipos de autopromoção e tópicos em posts self_promotion."""
+    return f"""You are an expert community analyst specializing in understanding self-promotion patterns, product launches, content marketing, and entrepreneurial signals shared in online communities.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total self_promotion posts: {total_posts}
+
+Below are ALL posts classified as "self_promotion" from this audience's communities.
+Your task is to analyze them holistically and identify:
+
+1. **Promotion type subcategories**: What kinds of self-promotion are people doing? (e.g., product_launch, service_offer, content_marketing, portfolio_showcase, tool_showcase, course, tutorial, open_source, newsletter, podcast, ebook, template, saas_launch, freelance_offer, case_study, etc.)
+2. **Topic keywords**: What specific subjects are being promoted? Use single words. (e.g., SaaS, freelancing, design, writing, analytics, marketing, automation, AI, SEO, development, etc.)
+
+POSTS:
+{posts_text}
+
+---
+
+Respond in JSON format:
+{{
+  "subcategories": {{
+    "promotion_type": count,
+    "promotion_type": count
+  }},
+  "topic_keywords": {{
+    "keyword": count,
+    "keyword": count
+  }}
+}}
+
+RULES:
+- subcategories: Return up to 10 promotion types, sorted by count descending
+- topic_keywords: Return up to 10 single-word topics, sorted by count descending
+- Each count represents how many posts do that type of promotion or relate to that topic
+- A single post can contribute to multiple promotion types or topics
+- Use lowercase for all keys
+- Promotion types should be specific (use "product_launch" not "promotion", use "tutorial" not "content")
+- Topics should be single words that capture the core subject (use "SaaS" not "SaaS product")
+- The sum of subcategory counts may exceed total_posts (one post can involve multiple promotion types)
+- Return ONLY the JSON object, no additional text
+{language_directive}"""
+
+
+def get_self_promotion_patterns_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+    has_comments: bool = False,
+) -> str:
+    """Prompt para agrupar posts self_promotion em padrões de autopromoção."""
+    comments_instruction = ""
+    if has_comments:
+        comments_instruction = """
+
+IMPORTANT — THREAD COMMENTS ANALYSIS:
+Some posts include top community comments (marked with 💬 COMMENTS). Use them to:
+1. Assess **community_sentiment**: How the community reacted to the promotion — "supportive" (positive feedback, interest shown), "neutral" (acknowledged but not enthusiastic), "skeptical" (doubts about value/legitimacy), "hostile" (negative reception, seen as spam)
+2. Extract **feedback_highlights**: Direct feedback, suggestions, or questions from the community about the promoted product/service/content
+3. Extract **market_signals**: Competitive insights — competitors mentioned, market gaps identified, unmet needs revealed by community responses
+- If comments are present, include "community_sentiment", "feedback_highlights", and "market_signals" fields in each pattern"""
+
+    return f"""You are an expert community analyst. Your task is to group self-promotion posts into promotion patterns — recurring themes that reveal what products, services, and content the audience is actively building and promoting.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total self_promotion posts: {total_posts}
+
+Below are posts classified as "self_promotion" from this audience's communities, including their body text for richer context.
+{comments_instruction}
+
+POSTS:
+{posts_text}
+
+---
+
+Group these posts into 3 to 8 promotion patterns. Each pattern should represent a distinct, recurring type of product, service, or content being promoted.
+
+Respond in JSON format:
+[
+  {{
+    "name": "Short descriptive name of the promotion pattern (5-10 words)",
+    "emoji": "single emoji representing the type of promotion",
+    "post_ids": ["id1", "id2", "id3"]{', "community_sentiment": "supportive|neutral|skeptical|hostile", "feedback_highlights": ["feedback1", "feedback2"], "market_signals": ["signal1", "signal2"]' if has_comments else ''}
+  }}
+]
+
+RULES:
+- Create 3 to 8 patterns maximum
+- Each pattern must have at least 2 posts (if total posts < 6, patterns with 1 post are acceptable)
+- Each post_id must appear in EXACTLY ONE pattern — no duplicates across patterns
+- Every post_id from the input should be assigned to a pattern
+- Pattern names should be descriptive promotion phrases (5-10 words)
+- Use a single emoji that best represents the promotion type (e.g., 🚀 product launch, 📝 content/blog, 🎓 course/tutorial, 🔧 tool/plugin, 💼 service/freelance, 📊 SaaS, 🎨 design/creative, 📰 newsletter)
+- Order patterns by number of posts (most posts first)
+- post_ids must match exactly the POST_ID values from the input
+- Return ONLY the JSON array, no additional text
+{language_directive}"""
