@@ -26,6 +26,7 @@ _TYPE_LABELS = {
     "theme_summary": "Theme Summary",
     "communities_changed": "Communities Update",
     "communities_validation_failed": "Community Validation",
+    "youtube_validation": "YouTube Validation",
 }
 
 

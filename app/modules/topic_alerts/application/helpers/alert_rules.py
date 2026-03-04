@@ -44,3 +44,20 @@ def classify_new_theme_severity(engagement_score: float | None) -> str:
     if score >= NEW_THEME_WARNING_ENGAGEMENT:
         return "warning"
     return "info"
+
+
+# --- Thresholds de validação cross-platform YouTube ---
+CROSS_PLATFORM_WARNING_TRACTION = 7  # traction_score >= 7 = warning
+CROSS_PLATFORM_CRITICAL_TRACTION = 8  # traction_score > 8 + content_gap = critical
+
+
+def classify_cross_platform_severity(
+    traction_score: float,
+    has_content_gap: bool = False,
+) -> str | None:
+    """Retorna severity para validação cross-platform YouTube."""
+    if traction_score > CROSS_PLATFORM_CRITICAL_TRACTION and has_content_gap:
+        return "critical"
+    if traction_score >= CROSS_PLATFORM_WARNING_TRACTION:
+        return "warning"
+    return None
