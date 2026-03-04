@@ -633,3 +633,113 @@ RULES:
 - post_ids must match exactly the POST_ID values from the input
 - Return ONLY the JSON array, no additional text
 {language_directive}"""
+
+
+def get_analyze_news_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+) -> str:
+    """Prompt para análise holística de tipos de notícias e tópicos em posts news."""
+    return f"""You are an expert community analyst specializing in understanding news sharing patterns, industry trends, regulatory changes, and current events discussed in online communities.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total news posts: {total_posts}
+
+Below are ALL posts classified as "news" from this audience's communities.
+Your task is to analyze them holistically and identify:
+
+1. **News type subcategories**: What kinds of news are people sharing? (e.g., product_update, industry_trend, regulation, acquisition, funding, partnership, security_breach, algorithm_change, platform_update, market_report, layoffs, launch, shutdown, policy_change, research_finding, etc.)
+2. **Topic keywords**: What specific subjects are the news about? Use single words. (e.g., AI, pricing, privacy, Google, regulation, advertising, algorithm, layoffs, funding, security, etc.)
+
+POSTS:
+{posts_text}
+
+---
+
+Respond in JSON format:
+{{
+  "subcategories": {{
+    "news_type": count,
+    "news_type": count
+  }},
+  "topic_keywords": {{
+    "keyword": count,
+    "keyword": count
+  }}
+}}
+
+RULES:
+- subcategories: Return up to 10 news types, sorted by count descending
+- topic_keywords: Return up to 10 single-word topics, sorted by count descending
+- Each count represents how many posts share that type of news or relate to that topic
+- A single post can contribute to multiple news types or topics
+- Use lowercase for all keys
+- News types should be specific (use "algorithm_change" not "update", use "acquisition" not "business")
+- Topics should be single words that capture the core subject (use "privacy" not "data privacy")
+- The sum of subcategory counts may exceed total_posts (one post can cover multiple news types)
+- Return ONLY the JSON object, no additional text
+{language_directive}"""
+
+
+def get_news_patterns_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+    has_comments: bool = False,
+) -> str:
+    """Prompt para agrupar posts news em padrões de notícias/eventos."""
+    comments_instruction = ""
+    if has_comments:
+        comments_instruction = """
+
+IMPORTANT — THREAD COMMENTS ANALYSIS:
+Some posts include top community comments (marked with 💬 COMMENTS). Use them to:
+1. Assess **sentiment_shift**: Whether the community's reaction aligns with the news narrative — "aligned" (community agrees with the tone/framing), "divergent" (community disagrees or has opposite reaction), "polarized" (community is split with strong opinions on both sides)
+2. Assess **perceived_impact**: How significant the community considers this news — "high" (widespread concern/excitement, many affected), "medium" (notable but limited scope), "low" (minor or niche relevance)
+3. Assess **actionability**: Whether the news requires action from the audience — "requires_action" (people need to adapt, migrate, change strategy), "monitor" (worth watching but no immediate action needed), "informational" (purely informative, no action implied)
+- If comments are present, include "sentiment_shift", "perceived_impact", and "actionability" fields in each pattern"""
+
+    return f"""You are an expert community analyst. Your task is to group news posts into news patterns — recurring themes that reveal what events, changes, and developments the audience is actively discussing and reacting to.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total news posts: {total_posts}
+
+Below are posts classified as "news" from this audience's communities, including their body text for richer context.
+{comments_instruction}
+
+POSTS:
+{posts_text}
+
+---
+
+Group these posts into 3 to 8 news patterns. Each pattern should represent a distinct, recurring news theme or event being discussed.
+
+Respond in JSON format:
+[
+  {{
+    "name": "Short descriptive name of the news pattern (5-10 words)",
+    "emoji": "single emoji representing the type of news",
+    "post_ids": ["id1", "id2", "id3"]{', "sentiment_shift": "aligned|divergent|polarized", "perceived_impact": "high|medium|low", "actionability": "requires_action|monitor|informational"' if has_comments else ''}
+  }}
+]
+
+RULES:
+- Create 3 to 8 patterns maximum
+- Each pattern must have at least 2 posts (if total posts < 6, patterns with 1 post are acceptable)
+- Each post_id must appear in EXACTLY ONE pattern — no duplicates across patterns
+- Every post_id from the input should be assigned to a pattern
+- Pattern names should be descriptive news phrases (5-10 words)
+- Use a single emoji that best represents the news type (e.g., 📰 general news, 🔄 platform update, ⚖️ regulation, 💰 funding/acquisition, 🔒 security, 📉 market change, 🚀 launch, 🤖 AI/tech, ⚠️ breaking change)
+- Order patterns by number of posts (most posts first)
+- post_ids must match exactly the POST_ID values from the input
+- Return ONLY the JSON array, no additional text
+{language_directive}"""
