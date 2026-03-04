@@ -4,13 +4,12 @@ import json
 import logging
 import os
 
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.shared.application.helpers.language_directive import (
     get_language_directive,
 )
-from app.modules.shared.application.services.llm_factory import extract_response_text
+from app.modules.shared.application.services.llm_factory import create_llm, extract_response_text
 from app.modules.content_suggestions.application.use_cases.generate_suggestions_use_case.agent.prompts.accuracy_prompts import (
     get_accuracy_review_prompt,
 )
@@ -30,9 +29,10 @@ from app.modules.content_suggestions.application.use_cases.generate_suggestions_
 logger = logging.getLogger(__name__)
 
 
-def _get_llm() -> ChatOpenAI:
-    return ChatOpenAI(
-        model=os.getenv("CONTENT_SUGGESTION_MODEL", os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07")),
+def _get_llm():
+    return create_llm(
+        model_env_var="CONTENT_SUGGESTION_MODEL",
+        default_model=os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
         temperature=0.3,
     )
 
