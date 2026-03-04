@@ -279,3 +279,100 @@ RULES:
 - post_ids must match exactly the POST_ID values from the input
 - Return ONLY the JSON array, no additional text
 {language_directive}"""
+
+
+def get_analyze_advice_requests_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+) -> str:
+    """Prompt para análise holística de tipos de conselho e tópicos em posts advice_request."""
+    return f"""You are an expert community analyst specializing in understanding what guidance, recommendations, and expert opinions people seek in online communities.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total advice_request posts: {total_posts}
+
+Below are ALL posts classified as "advice_request" from this audience's communities.
+Your task is to analyze them holistically and identify:
+
+1. **Advice type subcategories**: What kinds of advice are people looking for? (e.g., career, strategy, beginner, comparison, best_practices, recommendation, troubleshooting, scaling, optimization, workflow, budgeting, hiring, etc.)
+2. **Topic keywords**: What specific subjects are people seeking advice about? Use single words. (e.g., marketing, pricing, hiring, SEO, content, branding, analytics, freelancing, etc.)
+
+POSTS:
+{posts_text}
+
+---
+
+Respond in JSON format:
+{{
+  "subcategories": {{
+    "advice_type": count,
+    "advice_type": count
+  }},
+  "topic_keywords": {{
+    "keyword": count,
+    "keyword": count
+  }}
+}}
+
+RULES:
+- subcategories: Return up to 10 advice types, sorted by count descending
+- topic_keywords: Return up to 10 single-word topics, sorted by count descending
+- Each count represents how many posts seek that type of advice or relate to that topic
+- A single post can contribute to multiple advice types or topics
+- Use lowercase for all keys
+- Advice types should be specific (use "career" not "life", use "comparison" not "questions")
+- Topics should be single words that capture the core subject (use "pricing" not "pricing strategy")
+- The sum of subcategory counts may exceed total_posts (one post can seek multiple advice types)
+- Return ONLY the JSON object, no additional text
+{language_directive}"""
+
+
+def get_advice_patterns_prompt(
+    audience_name: str,
+    period_start: str,
+    period_end: str,
+    posts_text: str,
+    total_posts: int,
+    language_directive: str = "",
+) -> str:
+    """Prompt para agrupar posts advice_request em padrões de busca de conselho."""
+    return f"""You are an expert community analyst. Your task is to group advice request posts into advice-seeking patterns — recurring themes that reveal what guidance and recommendations the audience is actively looking for.
+
+Audience: "{audience_name}"
+Period: {period_start} to {period_end}
+Total advice_request posts: {total_posts}
+
+Below are posts classified as "advice_request" from this audience's communities, including their body text for richer context.
+
+POSTS:
+{posts_text}
+
+---
+
+Group these posts into 3 to 8 advice-seeking patterns. Each pattern should represent a distinct, recurring type of guidance or recommendation being sought.
+
+Respond in JSON format:
+[
+  {{
+    "name": "Short descriptive name of the advice pattern (5-10 words)",
+    "emoji": "single emoji representing the type of advice sought",
+    "post_ids": ["id1", "id2", "id3"]
+  }}
+]
+
+RULES:
+- Create 3 to 8 patterns maximum
+- Each pattern must have at least 2 posts (if total posts < 6, patterns with 1 post are acceptable)
+- Each post_id must appear in EXACTLY ONE pattern — no duplicates across patterns
+- Every post_id from the input should be assigned to a pattern
+- Pattern names should be descriptive advice-seeking phrases (5-10 words)
+- Use a single emoji that best represents the advice type (e.g., 🎯 strategy, 📈 growth, 💼 career, 🤔 comparison, 📚 learning, 💡 best practices)
+- Order patterns by number of posts (most posts first)
+- post_ids must match exactly the POST_ID values from the input
+- Return ONLY the JSON array, no additional text
+{language_directive}"""

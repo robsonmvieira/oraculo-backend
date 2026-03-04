@@ -190,6 +190,13 @@ class SendIntentMessageUseCase:
             "patterns": "SOLUTION REQUEST PATTERNS",
             "top_subreddits": "TOP SUBREDDITS FOR SOLUTION REQUESTS",
         },
+        "advice_request": {
+            "overview": "ADVICE REQUESTS OVERVIEW",
+            "subcategories": "ADVICE TYPE BREAKDOWN",
+            "topic_keywords": "ADVICE TOPIC KEYWORDS",
+            "patterns": "ADVICE REQUEST PATTERNS",
+            "top_subreddits": "TOP SUBREDDITS FOR ADVICE REQUESTS",
+        },
     }
 
     def _build_intent_context(

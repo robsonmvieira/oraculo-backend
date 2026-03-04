@@ -12,7 +12,9 @@ from app.modules.shared.application.services.llm_factory import extract_response
 from langgraph.graph import END, START, StateGraph
 
 from app.modules.intent_classification.application.use_cases.classify_intents_use_case.agent.prompts.intent_prompts import (
+    get_advice_patterns_prompt,
     get_aggregate_intents_prompt,
+    get_analyze_advice_requests_prompt,
     get_analyze_pain_anger_prompt,
     get_analyze_solution_requests_prompt,
     get_classify_intents_prompt,
@@ -618,6 +620,172 @@ def analyze_solution_requests(state: IntentClassificationState) -> dict:
     return {"intent_aggregations": updated}
 
 
+def analyze_advice_requests(state: IntentClassificationState) -> dict:
+    """
+    Nó 5: Analisa posts advice_request para extrair tipos de conselho e tópicos.
+
+    Envia TODOS os posts classificados como advice_request ao LLM em uma única chamada
+    para obter distribuições agregadas de tipos de conselho e topic keywords.
+    Também computa top_subreddits (de quais comunidades vêm os posts advice_request).
+    Opcionalmente, agrupa posts em padrões de busca de conselho (segunda chamada LLM).
+    """
+    aggregations = state.get("intent_aggregations", [])
+    classified = state.get("classified_posts", [])
+
+    # Filtrar posts advice_request
+    advice_posts = [p for p in classified if p["primary_intent"] == "advice_request"]
+    if not advice_posts:
+        return {"intent_aggregations": aggregations}
+
+    # Computar top_subreddits a partir dos posts advice_request
+    subreddit_counter = Counter(p["post_subreddit"] for p in advice_posts)
+    top_subreddits = [
+        {"name": name, "count": count}
+        for name, count in subreddit_counter.most_common(10)
+    ]
+
+    # Construir texto de posts para o prompt
+    posts_text = _build_posts_batch_text(
+        [
+            {
+                "id": p["post_id"],
+                "subreddit": p["post_subreddit"],
+                "title": p["post_title"],
+                "score": 0,
+                "num_comments": 0,
+            }
+            for p in advice_posts
+        ]
+    )
+
+    llm = _get_llm()
+    language_directive = get_language_directive(state.get("language", "en"))
+
+    prompt = get_analyze_advice_requests_prompt(
+        audience_name=state["audience_name"],
+        period_start=state["period_start"],
+        period_end=state["period_end"],
+        posts_text=posts_text,
+        total_posts=len(advice_posts),
+        language_directive=language_directive,
+    )
+
+    response = llm.invoke(prompt)
+    result = _parse_json_object_response(extract_response_text(response))
+
+    subcategories = result.get("subcategories")
+    topic_keywords = result.get("topic_keywords")
+
+    # Validar e limitar a 10 itens
+    if isinstance(subcategories, dict):
+        subcategories = dict(
+            sorted(subcategories.items(), key=lambda x: x[1], reverse=True)[:10]
+        )
+    else:
+        subcategories = None
+
+    if isinstance(topic_keywords, dict):
+        topic_keywords = dict(
+            sorted(topic_keywords.items(), key=lambda x: x[1], reverse=True)[:10]
+        )
+    else:
+        topic_keywords = None
+
+    # --- Advice Patterns (segunda chamada LLM) ---
+    advice_patterns = []
+    if len(advice_posts) >= 3:
+        # Lookup de posts completos (com selftext, score, num_comments, permalink)
+        full_posts_map = {p["id"]: p for p in state.get("posts", [])}
+
+        # Montar texto rico para o prompt (inclui selftext)
+        rich_posts = [
+            full_posts_map[p["post_id"]]
+            for p in advice_posts
+            if p["post_id"] in full_posts_map
+        ]
+        patterns_text = _build_posts_batch_text(rich_posts)
+
+        patterns_prompt = get_advice_patterns_prompt(
+            audience_name=state["audience_name"],
+            period_start=state["period_start"],
+            period_end=state["period_end"],
+            posts_text=patterns_text,
+            total_posts=len(advice_posts),
+            language_directive=language_directive,
+        )
+
+        try:
+            patterns_response = llm.invoke(patterns_prompt)
+            raw_patterns = _parse_json_response(
+                extract_response_text(patterns_response)
+            )
+
+            # Enriquecer cada padrão com métricas e submissions
+            for pattern in raw_patterns:
+                submissions = []
+                total_upvotes = 0
+                total_comments = 0
+                for pid in pattern.get("post_ids", []):
+                    fp = full_posts_map.get(pid)
+                    if not fp:
+                        continue
+                    submissions.append(
+                        {
+                            "title": fp["title"],
+                            "body": (fp.get("selftext") or "")[:500],
+                            "subreddit": f"r/{fp['subreddit']}",
+                            "score": fp.get("score", 0),
+                            "num_comments": fp.get("num_comments", 0),
+                            "permalink": fp.get("permalink", ""),
+                        }
+                    )
+                    total_upvotes += fp.get("score", 0)
+                    total_comments += fp.get("num_comments", 0)
+
+                if submissions:
+                    advice_patterns.append(
+                        {
+                            "name": pattern.get("name", ""),
+                            "emoji": pattern.get("emoji", ""),
+                            "post_count": len(submissions),
+                            "total_upvotes": total_upvotes,
+                            "total_comments": total_comments,
+                            "submissions": submissions,
+                        }
+                    )
+
+            advice_patterns.sort(key=lambda x: x["post_count"], reverse=True)
+            logger.info(
+                "Advice patterns: %d patterns identified from %d posts",
+                len(advice_patterns),
+                len(advice_posts),
+            )
+        except Exception:
+            logger.exception("Failed to extract advice patterns, continuing without them")
+            advice_patterns = []
+
+    # Atualizar a agregação de advice_request
+    updated = []
+    for agg in aggregations:
+        if agg["category"] == "advice_request":
+            agg = {
+                **agg,
+                "subcategories": subcategories,
+                "topic_keywords": topic_keywords,
+                "top_subreddits": top_subreddits,
+                "pain_patterns": advice_patterns,
+            }
+        updated.append(agg)
+
+    logger.info(
+        "Advice Requests analysis: %d subcategories, %d topic keywords, %d subreddits",
+        len(subcategories) if subcategories else 0,
+        len(topic_keywords) if topic_keywords else 0,
+        len(top_subreddits),
+    )
+    return {"intent_aggregations": updated}
+
+
 def create_intent_classification_agent():
     """Cria e compila o grafo LangGraph de classificação de intenção."""
     workflow = StateGraph(IntentClassificationState)
@@ -625,9 +793,11 @@ def create_intent_classification_agent():
     workflow.add_node("aggregate_intents", aggregate_intents)
     workflow.add_node("analyze_pain_anger", analyze_pain_anger)
     workflow.add_node("analyze_solution_requests", analyze_solution_requests)
+    workflow.add_node("analyze_advice_requests", analyze_advice_requests)
     workflow.add_edge(START, "classify_intents")
     workflow.add_edge("classify_intents", "aggregate_intents")
     workflow.add_edge("aggregate_intents", "analyze_pain_anger")
     workflow.add_edge("analyze_pain_anger", "analyze_solution_requests")
-    workflow.add_edge("analyze_solution_requests", END)
+    workflow.add_edge("analyze_solution_requests", "analyze_advice_requests")
+    workflow.add_edge("analyze_advice_requests", END)
     return workflow.compile()
