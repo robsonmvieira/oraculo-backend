@@ -45,6 +45,12 @@ def intent_chat_system_prompt(
             "data_types": "solution types identified, seeking patterns, specific examples from posts",
             "goal": "help the user understand what solutions this audience is looking for",
         },
+        "advice_request": {
+            "specialization": "understanding what guidance, recommendations, and expert opinions people are seeking",
+            "focus": "advice types sought, guidance patterns, recommendation requests, and decision-making needs",
+            "data_types": "advice types identified, guidance patterns, specific examples from posts",
+            "goal": "help the user understand what advice and guidance this audience is seeking",
+        },
     }
     focus = category_focus.get(intent_category, category_focus["pain_and_anger"])
 

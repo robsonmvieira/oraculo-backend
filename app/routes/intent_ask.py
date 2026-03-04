@@ -23,7 +23,7 @@ router = APIRouter(
 
 AUDIENCE_NOT_FOUND = "Audiência não encontrada"
 VALID_WINDOWS = ("week", "month")
-SUPPORTED_ASK_CATEGORIES = ("pain_and_anger", "solution_request")
+SUPPORTED_ASK_CATEGORIES = ("pain_and_anger", "solution_request", "advice_request")
 
 
 class IntentAskRequest(BaseModel):
