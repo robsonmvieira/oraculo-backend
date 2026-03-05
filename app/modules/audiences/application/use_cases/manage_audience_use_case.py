@@ -155,19 +155,11 @@ class UpdateAudienceUseCase:
             self.trigger_topics.execute(audience_id)
             self.trigger_keywords.execute(audience_id)
 
-            self.notification_service.notify(
+            self.notification_service.notify_communities_updated(
                 user_id=user_id,
-                type_="communities_changed",
-                title="Communities Updated",
-                message=(
-                    f"Audience communities updated: "
-                    f"{len(to_add)} added, {len(to_remove)} removed."
-                ),
-                metadata={
-                    "audience_id": str(audience_id),
-                    "added": sorted(to_add),
-                    "removed": sorted(to_remove),
-                },
+                audience_id=audience_id,
+                added=list(to_add),
+                removed=list(to_remove),
             )
 
             for name in to_remove:

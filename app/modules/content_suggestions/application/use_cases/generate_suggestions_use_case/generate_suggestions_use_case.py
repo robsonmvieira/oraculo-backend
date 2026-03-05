@@ -61,7 +61,9 @@ class GenerateSuggestionsUseCase:
             community_names = [c.subreddit_name for c in communities]
 
             if not community_names:
-                self.suggestion_repo.mark_failed(analysis_id, "No communities in audience")
+                self.suggestion_repo.mark_failed(
+                    analysis_id, "No communities in audience"
+                )
                 return False
 
             # 2. Montar contexto de todos os módulos
@@ -89,20 +91,22 @@ class GenerateSuggestionsUseCase:
                 os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
             )
 
-            result = agent.invoke({
-                "audience_id": str(audience_id),
-                "audience_name": audience.name,
-                "audience_description": audience.description,
-                "community_names": community_names,
-                "language": language,
-                "assembled_context": assembled_context,
-                "modules_available": modules_available,
-                "topic_contexts": topic_contexts,
-                "ranked_opportunities": [],
-                "content_suggestions": [],
-                "differentiated_suggestions": [],
-                "verified_suggestions": [],
-            })
+            result = agent.invoke(
+                {
+                    "audience_id": str(audience_id),
+                    "audience_name": audience.name,
+                    "audience_description": audience.description,
+                    "community_names": community_names,
+                    "language": language,
+                    "assembled_context": assembled_context,
+                    "modules_available": modules_available,
+                    "topic_contexts": topic_contexts,
+                    "ranked_opportunities": [],
+                    "content_suggestions": [],
+                    "differentiated_suggestions": [],
+                    "verified_suggestions": [],
+                }
+            )
 
             verified = result.get("verified_suggestions", [])
 
@@ -138,15 +142,13 @@ class GenerateSuggestionsUseCase:
                 )
 
                 top_title = verified[0].get("title", "N/A") if verified else "N/A"
-                NotificationEventService(self.db).notify(
+                NotificationEventService(self.db).notify_content_suggestions_ready(
                     user_id=audience.user_id,
-                    type_="content_suggestions_ready",
-                    title="Content Suggestions Ready",
-                    message=f"Generated {len(verified)} content suggestions for audience '{audience.name}'.",
-                    metadata={
-                        "audience_id": str(audience_id),
-                        "analysis_id": str(analysis_id),
-                        "suggestion_count": len(verified),
+                    audience_id=audience_id,
+                    audience_name=audience.name,
+                    analysis_id=analysis_id,
+                    suggestion_count=len(verified),
+                    metadata_extra={
                         "top_suggestion_title": top_title,
                         "modules_used": modules_available,
                     },
@@ -171,16 +173,12 @@ class GenerateSuggestionsUseCase:
                         NotificationEventService,
                     )
 
-                    NotificationEventService(self.db).notify(
+                    NotificationEventService(self.db).notify_content_suggestions_failed(
                         user_id=audience.user_id,
-                        type_="content_suggestions_failed",
-                        title="Content Suggestions Failed",
-                        message=f"Failed to generate suggestions for audience '{audience.name}': {e}",
-                        metadata={
-                            "audience_id": str(audience_id),
-                            "analysis_id": str(analysis_id),
-                            "error": str(e),
-                        },
+                        audience_id=audience_id,
+                        audience_name=audience.name,
+                        analysis_id=analysis_id,
+                        error=str(e),
                     )
             except Exception:
                 pass

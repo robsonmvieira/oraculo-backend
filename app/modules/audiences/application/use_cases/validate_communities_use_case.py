@@ -48,16 +48,8 @@ class ValidateCommunitiesUseCase:
 
         self.audience_repo.remove_communities_by_names(audience_id, invalid_names)
 
-        self.notification_service.notify(
+        self.notification_service.notify_communities_invalid(
             user_id=user_id,
-            type_="communities_validation_failed",
-            title="Invalid Communities Removed",
-            message=(
-                f"The following communities were not found on Reddit and have been "
-                f"removed: {', '.join(invalid_names)}"
-            ),
-            metadata={
-                "audience_id": str(audience_id),
-                "invalid_names": invalid_names,
-            },
+            audience_id=audience_id,
+            invalid_names=invalid_names,
         )

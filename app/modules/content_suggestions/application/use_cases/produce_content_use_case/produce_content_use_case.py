@@ -105,16 +105,18 @@ class ProduceContentUseCase:
                 os.getenv("MODEL_NAME", "gpt-5-nano-2025-08-07"),
             )
 
-            result = agent.invoke({
-                "suggestion": suggestion_dict,
-                "target_platforms": target_platforms,
-                "audience_name": audience.name,
-                "audience_description": audience.description,
-                "community_names": community_names,
-                "language": language,
-                "platform_drafts": [],
-                "refined_drafts": [],
-            })
+            result = agent.invoke(
+                {
+                    "suggestion": suggestion_dict,
+                    "target_platforms": target_platforms,
+                    "audience_name": audience.name,
+                    "audience_description": audience.description,
+                    "community_names": community_names,
+                    "language": language,
+                    "platform_drafts": [],
+                    "refined_drafts": [],
+                }
+            )
 
             refined = result.get("refined_drafts", [])
             if not refined:
@@ -153,19 +155,14 @@ class ProduceContentUseCase:
                     NotificationEventService,
                 )
 
-                platforms_str = ", ".join(target_platforms)
-                NotificationEventService(self.db).notify(
+                NotificationEventService(self.db).notify_content_production_ready(
                     user_id=audience.user_id,
-                    type_="content_production_ready",
-                    title="Content Ready",
-                    message=f"Content for '{suggestion.title[:80]}' ready on {platforms_str}.",
-                    metadata={
-                        "audience_id": str(analysis.audience_id),
-                        "suggestion_id": str(suggestion_id),
-                        "platforms": target_platforms,
-                        "draft_count": len(refined),
-                        "has_image": bool(image_url),
-                    },
+                    audience_id=analysis.audience_id,
+                    suggestion_id=suggestion_id,
+                    suggestion_title=suggestion.title,
+                    platforms=target_platforms,
+                    draft_count=len(refined),
+                    has_image=bool(image_url),
                 )
             except Exception:
                 logger.debug("Failed to send notification for content production")
@@ -187,18 +184,19 @@ class ProduceContentUseCase:
                         NotificationEventService,
                     )
 
-                    NotificationEventService(self.db).notify(
-                        user_id=suggestion.analysis.audience.user_id
+                    user_id = (
+                        suggestion.analysis.audience.user_id
                         if hasattr(suggestion.analysis, "audience")
-                        else None,
-                        type_="content_production_failed",
-                        title="Content Production Failed",
-                        message=f"Failed to produce content: {e}",
-                        metadata={
-                            "suggestion_id": str(suggestion_id),
-                            "error": str(e),
-                        },
+                        else None
                     )
+                    if user_id:
+                        NotificationEventService(
+                            self.db
+                        ).notify_content_production_failed(
+                            user_id=user_id,
+                            suggestion_id=suggestion_id,
+                            error=str(e),
+                        )
             except Exception:
                 pass
             return False
@@ -243,9 +241,7 @@ class ProduceContentUseCase:
             )
 
             storage = StorageService()
-            key = storage.generate_key(
-                prefix=f"content-images/{suggestion_id}"
-            )
+            key = storage.generate_key(prefix=f"content-images/{suggestion_id}")
             storage.upload(data=image_bytes, key=key)
 
             # Registrar arquivo na tabela uploaded_files
